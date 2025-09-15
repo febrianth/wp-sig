@@ -20,7 +20,9 @@
  * @subpackage Wp_Sig/admin
  * @author     febrianth <febriantrihardiyanto@gmail.com>
  */
-class Wp_Sig_Admin {
+
+class Wp_Sig_Admin
+{
 
 	/**
 	 * The ID of this plugin.
@@ -47,11 +49,11 @@ class Wp_Sig_Admin {
 	 * @param      string    $plugin_name       The name of this plugin.
 	 * @param      string    $version    The version of this plugin.
 	 */
-	public function __construct( $plugin_name, $version ) {
+	public function __construct($plugin_name, $version)
+	{
 
 		$this->plugin_name = $plugin_name;
 		$this->version = $version;
-
 	}
 
 	/**
@@ -59,7 +61,8 @@ class Wp_Sig_Admin {
 	 *
 	 * @since    1.0.0
 	 */
-	public function enqueue_styles() {
+	public function enqueue_styles($hook_suffix)
+	{
 
 		/**
 		 * This function is provided for demonstration purposes only.
@@ -73,8 +76,17 @@ class Wp_Sig_Admin {
 		 * class.
 		 */
 
-		wp_enqueue_style( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'css/wp-sig-admin.css', array(), $this->version, 'all' );
+		$target_hook = 'toplevel_page_sig_plugin_main';
 
+		if ( $hook_suffix !== $target_hook ) {
+			return;
+		}
+
+		wp_enqueue_style('dashicons');
+		wp_enqueue_style($this->plugin_name, WP_SIG_PLUGIN_URL . 'admin/css/wp-sig-admin.css', array(), $this->version, 'all');
+		wp_enqueue_style( $this->plugin_name . '-bootstrap', WP_SIG_PLUGIN_URL . 'admin/dist/css/bootstrap.min.css', [], '5.3.3' );
+		wp_enqueue_style($this->plugin_name . '-sweetalert2', WP_SIG_PLUGIN_URL . 'admin/dist/css/sweetalert2.min.css', [], '11.10.1');
+		wp_enqueue_style($this->plugin_name . '-bootstrap-icons', WP_SIG_PLUGIN_URL . 'admin/dist/css/bootstrap-icons.min.css', array($this->plugin_name . '-bootstrap'), '1.11.3');
 	}
 
 	/**
@@ -82,7 +94,8 @@ class Wp_Sig_Admin {
 	 *
 	 * @since    1.0.0
 	 */
-	public function enqueue_scripts() {
+	public function enqueue_scripts($hook_suffix)
+	{
 
 		/**
 		 * This function is provided for demonstration purposes only.
@@ -96,8 +109,43 @@ class Wp_Sig_Admin {
 		 * class.
 		 */
 
-		wp_enqueue_script( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'js/wp-sig-admin.js', array( 'jquery' ), $this->version, false );
+		// only load in this plugins
+		if ( $hook_suffix !== 'toplevel_page_sig_plugin_main' ) {
+			return;
+		}
 
+		$asset_file = include( WP_SIG_PLUGIN_PATH . 'build/index.asset.php');
+
+		wp_enqueue_script(
+			$this->plugin_name . '-spa-app',
+			WP_SIG_PLUGIN_URL . 'build/index.js',
+			$asset_file['dependencies'],
+			$asset_file['version'],
+			true
+		);
+		// Muat juga CSS hasil build jika ada
+		wp_enqueue_style(
+			$this->plugin_name . '-spa-app-styles',
+			WP_SIG_PLUGIN_URL . 'build/index.css',
+			array(),
+			$asset_file['version']
+		);
 	}
 
+	public function add_admin_menu()
+	{
+		add_menu_page(
+			'SIG Plugin', // page title
+			'SIG Plugin', // menu title
+			'manage_options', // capability
+			'sig_plugin_main', // menu slug
+			[$this, 'render_spa_shell'], // callback function
+			'dashicons-location-alt', // icon URL
+			25 // position
+		);
+	}
+
+	public function render_spa_shell() {
+		echo '<div class="wrap"><div id="sig-app-root"></div></div>';
+	}
 }

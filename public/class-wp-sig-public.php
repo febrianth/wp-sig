@@ -74,7 +74,6 @@ class Wp_Sig_Public {
 		 */
 
 		wp_enqueue_style( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'css/wp-sig-public.css', array(), $this->version, 'all' );
-
 	}
 
 	/**
@@ -97,7 +96,7 @@ class Wp_Sig_Public {
 		 */
 
 		wp_enqueue_script( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'js/wp-sig-public.js', array( 'jquery' ), $this->version, false );
-
+		wp_enqueue_script('jquery'); 
 	}
 
 }
