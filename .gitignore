@@ -1,20 +1,27 @@
+# Dependensi
 /vendor/
-
 /node_modules/
 
+# Hasil Build
 /build/
 
+# Data Aset
+/public/maps/
+
+# File Log & Debug
 *.log
 debug.log
 npm-debug.log*
 yarn-error.log
 
+# File Lingkungan (Environment)
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 
+# File Sistem Operasi & Editor
 # macOS
 .DS_Store
 .AppleDouble
@@ -29,7 +36,7 @@ ehthumbs.db
 Desktop.ini
 $RECYCLE.BIN/
 
-# code editor (VS Code, Sublime Text, Atom, etc.)
+# Editor Kode
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
@@ -39,9 +46,9 @@ $RECYCLE.BIN/
 *.sublime-project
 *.sublime-workspace
 
+# File Arsip & Installer
 *.zip
 *.rar
 *.gz
 *.tar
-
 composer.phar

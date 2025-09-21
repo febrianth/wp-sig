@@ -167,6 +167,8 @@ class Wp_Sig
 
 		$this->loader->add_action('admin_menu', $plugin_admin, 'add_admin_menu');
 
+		$this->loader->add_filter( 'admin_footer_text', $plugin_admin, 'change_admin_footer_text', 11 );
+
 		$api_controller = new MemberApiController();
 		$this->loader->add_action( 'rest_api_init', $api_controller, 'register_routes' );
 	}

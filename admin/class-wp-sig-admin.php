@@ -84,9 +84,6 @@ class Wp_Sig_Admin
 
 		wp_enqueue_style('dashicons');
 		wp_enqueue_style($this->plugin_name, WP_SIG_PLUGIN_URL . 'admin/css/wp-sig-admin.css', array(), $this->version, 'all');
-		wp_enqueue_style( $this->plugin_name . '-bootstrap', WP_SIG_PLUGIN_URL . 'admin/dist/css/bootstrap.min.css', [], '5.3.3' );
-		wp_enqueue_style($this->plugin_name . '-sweetalert2', WP_SIG_PLUGIN_URL . 'admin/dist/css/sweetalert2.min.css', [], '11.10.1');
-		wp_enqueue_style($this->plugin_name . '-bootstrap-icons', WP_SIG_PLUGIN_URL . 'admin/dist/css/bootstrap-icons.min.css', array($this->plugin_name . '-bootstrap'), '1.11.3');
 	}
 
 	/**
@@ -130,6 +127,15 @@ class Wp_Sig_Admin
 			array(),
 			$asset_file['version']
 		);
+
+		wp_localize_script(
+			$this->plugin_name . '-spa-app', // Handle dari script React kita
+			'sig_plugin_data',  // Nama objek JavaScript yang akan dibuat
+			array(
+				'api_url' => esc_url_raw( rest_url( 'sig/v1/' ) ), // URL dasar API kita
+				'nonce'   => wp_create_nonce( 'wp_rest' )       // Kunci keamanan (KTP)
+			)
+		);
 	}
 
 	public function add_admin_menu()
@@ -148,4 +154,14 @@ class Wp_Sig_Admin
 	public function render_spa_shell() {
 		echo '<div class="wrap"><div id="sig-app-root"></div></div>';
 	}
+
+	public function change_admin_footer_text( $footer_text ) {
+        // Cek apakah kita berada di halaman admin plugin SIG
+        $screen = get_current_screen();
+        if ( isset( $screen->id ) && $screen->id === 'toplevel_page_sig_plugin_main' ) {
+            return 'Terima kasih telah menggunakan <strong>SIG Plugin</strong>.';
+        }
+        
+        return $footer_text;
+    }
 }

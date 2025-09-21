@@ -1,0 +1,85 @@
+@font-face {
+  font-family: 'DM Sans';
+  src: url('./assets/fonts/DMSans-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'DM Sans';
+  src: url('./assets/fonts/DMSans-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --main: #88aaee;
+    --overlay: rgba(0, 0, 0, 0.8);
+    --bg: #dfe5f2;
+    --bw: #fff;
+    --blank: #000;
+    --border: #000;
+    --text: #000;
+    --mtext: #000;
+    --ring: #000;
+    --ring-offset: #fff;
+    --border-radius: 5px;
+    --box-shadow-x: 4px;
+    --box-shadow-y: 4px;
+    --reverse-box-shadow-x: -4px;
+    --reverse-box-shadow-y: -4px;
+    --base-font-weight: 500;
+    --heading-font-weight: 700;
+    --shadow: var(--box-shadow-x) var(--box-shadow-y) 0px 0px var(--border);
+	--font-sans: 'DM Sans';
+  }
+
+  .dark {
+    --bg: #272933;
+    --bw: #212121;
+    --blank: #fff;
+    --border: #000;
+    --text: #e6e6e6;
+    --mtext: #000;
+    --ring: #fff;
+    --ring-offset: #000;
+    --shadow: var(--box-shadow-x) var(--box-shadow-y) 0px 0px var(--border);
+	--font-sans: 'DM Sans';
+  }
+
+  body[class*="toplevel_page_sig_plugin_main"]  {
+    @apply font-sans bg-bg;
+
+    #wpwrap,
+    #wpcontent,
+    #wpbody,
+    #wpbody-content {
+      @apply bg-bg; 
+    }
+
+    #wpcontent {
+      @apply p-0;
+    }
+    
+    #wpbody-content .wrap {
+      @apply m-0 p-0 h-full;
+    }
+  }
+}
+
+#sig-app-root, #sig-app-root > div {
+    height: calc(100vh - 32px);
+    display: flex;
+    flex-direction: column;
+}
+
+#sig-app-root main {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 1.5rem;
+}
