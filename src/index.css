@@ -36,7 +36,7 @@
     --base-font-weight: 500;
     --heading-font-weight: 700;
     --shadow: var(--box-shadow-x) var(--box-shadow-y) 0px 0px var(--border);
-	--font-sans: 'DM Sans';
+	  --font-sans: 'DM Sans';
   }
 
   .dark {
@@ -49,7 +49,7 @@
     --ring: #fff;
     --ring-offset: #000;
     --shadow: var(--box-shadow-x) var(--box-shadow-y) 0px 0px var(--border);
-	--font-sans: 'DM Sans';
+	  --font-sans: 'DM Sans';
   }
 
   body[class*="toplevel_page_sig_plugin_main"]  {

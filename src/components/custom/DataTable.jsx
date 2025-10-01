@@ -27,7 +27,7 @@ export function DataTable({ columns, data }) {
             className="max-w-sm"
         />
       </div>
-      <div className="rounded-md border-2 border-foreground shadow-neo">
+      <div className="rounded-md border-2 border-foreground ">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (

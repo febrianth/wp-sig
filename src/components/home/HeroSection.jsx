@@ -41,7 +41,7 @@ function HeroSection() {
 
         {/* Kolom Gambar */}
         <div className="flex justify-center">
-          <div className="bg-white border-2 border-foreground shadow-neo p-2">
+          <div className="bg-white border-2 border-foreground  p-2">
              <img 
                src="https://placehold.co/600x500/dfe5f2/000000?text=WP-SIG+Dashboard" 
                alt="WP-SIG Dashboard" 

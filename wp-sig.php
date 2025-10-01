@@ -71,6 +71,8 @@ function sig_plugin_activate() {
     
     error_log( 'dbDelta() result: ' . print_r( $db_delta_result, true ) );
 
+    flush_rewrite_rules();
+
     error_log( '--- SIG Plugin Activation Process Finished ---' );
 }
 

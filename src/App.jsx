@@ -2,8 +2,10 @@ import { Routes, Route } from 'react-router-dom';
 import Dashboard from './pages/Dashboard'; 
 import Home from './pages/Home'; 
 import Manage from './pages/Manage'; 
-import Settings from './pages/Settings';
 import Navbar from './components/Navbar';
+
+import SettingsLayout from './components/layouts/SettingsLayout'; 
+import GeneralSettings from './pages/settings/GeneralSettings';
 
 function App() {
     return (
@@ -14,7 +16,11 @@ function App() {
                     <Route path="/" element={<Home />} />
                     <Route path="/dashboard" element={<Dashboard />} />
                     <Route path="/manage" element={<Manage />} />
-                    <Route path="/settings" element={<Settings />} />
+
+                     {/* 3. Buat Rute Bersarang untuk Pengaturan */}
+                    <Route path="/settings" element={<SettingsLayout />}>
+                        <Route index element={<GeneralSettings />} /> {/* Halaman default untuk /settings */}
+                    </Route>
                 </Routes>
             </main>
         </>

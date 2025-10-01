@@ -129,6 +129,12 @@ class Wp_Sig
 		 * side of the site.
 		 */
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/controllers/MemberController.php';
+		
+		/**
+		 * The class responsible for defining the controller Settings
+		 * side of the site.
+		 */
+		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/controllers/SettingController.php';
 
 		$this->loader = new Wp_Sig_Loader();
 	}
@@ -171,6 +177,9 @@ class Wp_Sig
 
 		$api_controller = new MemberApiController();
 		$this->loader->add_action( 'rest_api_init', $api_controller, 'register_routes' );
+
+		$settings_api_controller = new SettingsApiController();
+		$this->loader->add_action( 'rest_api_init', $settings_api_controller, 'register_routes' );
 	}
 
 	/**

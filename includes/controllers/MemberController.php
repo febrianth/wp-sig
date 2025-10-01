@@ -9,9 +9,6 @@ class MemberApiController {
         $this->member_service = new MemberService();
     }
 
-    /**
-     * all your API routes here.
-     */
     public function register_routes() {
         register_rest_route( 'sig/v1', '/members', array(
             'methods'             => 'GET',

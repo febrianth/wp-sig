@@ -15,7 +15,7 @@ export const columns = [
     header: "Alamat",
   },
   {
-    accessorKey: "regency_id", // Kita akan tampilkan ID Kabupaten
+    accessorKey: "regency_id",
     header: "ID Kabupaten",
   },
   {
