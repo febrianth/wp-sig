@@ -40,7 +40,7 @@ class SettingsApiController
 
         register_rest_route('sig/v1', '/process-geojson', [
             'methods'             => 'POST',
-            'callback'            => [$this, 'handle_process'],
+            'callback'            => [$this, 'handle_process_maps'],
             'permission_callback' => [$this, 'admin_permissions_check'],
         ]);
     }
@@ -69,18 +69,17 @@ class SettingsApiController
         }
     }
 
-    /**
-     * Callback untuk menangani unggahan file.
-     * Hanya menyimpan file dan mengembalikan URL-nya.
-     */
     public function handle_upload(WP_REST_Request $request)
     {
         $files = $request->get_file_params();
-        if (empty($files['geojson_file'])) {
-            return new WP_REST_Response(['error' => 'File tidak ditemukan.'], 400);
+        $file_type = $request->get_param('file_type'); // Mengambil file_type dari FormData
+
+        if (empty($files['geojson_file']) || empty($file_type)) {
+            return new WP_REST_Response(['error' => 'File atau tipe file tidak ditemukan.'], 400);
         }
 
-        $result = $this->settings_service->handle_geojson_upload($files['geojson_file'], 'temp');
+        // Panggil service dengan file dan tipe file
+        $result = $this->settings_service->handle_geojson_upload($files['geojson_file'], $file_type);
 
         if ($result['success']) {
             return new WP_REST_Response(['url' => $result['url']], 200);
@@ -92,23 +91,24 @@ class SettingsApiController
     /**
      * Callback untuk menyimpan pengaturan peta (path file & keys).
      */
-    public function handle_process(WP_REST_Request $request)
+    public function handle_process_maps(WP_REST_Request $request)
     {
         $params = $request->get_json_params();
-        $file_urls = $params['file_urls'] ?? [];
-        $key_mappings = $params['key_mappings'] ?? [];
+        $file_urls = $params['map_files'] ?? [];
+        $key_mappings = $params['map_keys'] ?? [];
 
-        if (empty($file_urls['districts']) || empty($file_urls['villages']) || empty($key_mappings)) {
-            return new WP_REST_Response(['error' => 'URL file Peta Kecamatan, Peta Desa, dan pemetaan properti tidak boleh kosong.'], 400);
+        if (empty($file_urls['districts']) || empty($file_urls['villages'])) {
+            return new WP_REST_Response(['error' => 'URL file Peta Kecamatan dan Desa wajib ada.'], 400);
         }
 
-        $success = $this->settings_service->save_map_settings($file_urls, $key_mappings);
+        $result = $this->settings_service->process_uploaded_maps($file_urls, $key_mappings);
 
-        if ($success) {
-            return new WP_REST_Response(['message' => 'Pengaturan peta berhasil disimpan.'], 200);
-        } else {
-            return new WP_REST_Response(['error' => 'Gagal menyimpan pengaturan peta.'], 500);
+        if (is_wp_error($result)) {
+            return new WP_REST_Response(['error' => $result->get_error_message()], 400);
         }
+
+        $new_settings = $this->settings_service->get_settings();
+        return new WP_REST_Response($new_settings, 200);
     }
 
     /**

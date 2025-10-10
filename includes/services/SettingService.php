@@ -34,6 +34,8 @@ class SettingsService
         return update_option($this->option_name, $sanitized_settings);
     }
 
+    private $upload_context = ['is_active' => false, 'subdir' => ''];
+
     /**
      * Handles the upload of a GeoJSON file.
      */
@@ -43,53 +45,138 @@ class SettingsService
             require_once ABSPATH . 'wp-admin/includes/file.php';
         }
 
-        // 1. Dapatkan pengaturan saat ini SEBELUM upload
         $current_settings = $this->get_settings();
+        if (!is_array($current_settings)) $current_settings = [];
         $old_file_url = $current_settings['map_files'][$file_type] ?? null;
 
-        // Tambah/Hapus filter mime type (tetap sama)
+        // 1. Atur konteks upload
+        $this->upload_context['is_active'] = true;
+        $this->upload_context['subdir'] = sanitize_key($file_type); // misal: 'villages' atau 'districts'
+
+        add_filter('upload_dir', [$this, 'custom_geojson_upload_dir']);
         add_filter('upload_mimes', [$this, 'add_geojson_mime_type']);
+
         $movefile = wp_handle_upload($file, ['test_form' => false]);
+
+        remove_filter('upload_dir', [$this, 'custom_geojson_upload_dir']);
         remove_filter('upload_mimes', [$this, 'add_geojson_mime_type']);
 
+        // Reset konteks
+        $this->upload_context = ['is_active' => false, 'subdir' => ''];
+
         if ($movefile && !isset($movefile['error'])) {
-            // 2. JIKA upload file baru BERHASIL, HAPUS file lama
+            // Hapus file lama JIKA upload yang baru berhasil
             if ($old_file_url) {
-                // Ubah URL file lama menjadi path server absolut
                 $old_file_path = str_replace(content_url(), WP_CONTENT_DIR, $old_file_url);
                 if (file_exists($old_file_path)) {
-                    @unlink($old_file_path); // Hapus file lama dari server
+                    @unlink($old_file_path);
                 }
             }
 
-            // 3. Simpan URL file yang baru
+            // Simpan URL file yang baru
+            if (!isset($current_settings['map_files']) || !is_array($current_settings['map_files'])) {
+                $current_settings['map_files'] = [];
+            }
             $current_settings['map_files'][$file_type] = $movefile['url'];
             $this->save_settings($current_settings);
 
             return ['success' => true, 'url' => $movefile['url']];
         } else {
-            $error = isset($movefile['error']) ? $movefile['error'] : 'Unknown upload error.';
-
-            return [
-                'success' => false,
-                'error'   => $error
-            ];
+            return ['success' => false, 'error' => $movefile['error'] ?? 'Unknown upload error.'];
         }
     }
 
-    public function save_map_settings($file_urls, $key_mappings)
+    /**
+     * Mengubah direktori upload ke subfolder khusus (villages/districts).
+     */
+    public function custom_geojson_upload_dir($dirs)
     {
-        // Dapatkan pengaturan yang sudah ada
+        if (!$this->upload_context['is_active']) {
+            return $dirs;
+        }
+
+        $custom_subdir = 'sig-maps/' . $this->upload_context['subdir'];
+
+        $dirs['subdir'] = $custom_subdir;
+        $dirs['path'] = $dirs['basedir'] . '/' . $custom_subdir;
+        $dirs['url'] = $dirs['baseurl'] . '/' . $custom_subdir;
+
+        return $dirs;
+    }
+
+    public function process_uploaded_maps($file_urls, $key_mappings)
+    {
         $settings = $this->get_settings();
 
-        // Simpan path ke KEDUA file peta
-        $settings['map_files']['districts'] = esc_url_raw($file_urls['districts'] ?? '');
-        $settings['map_files']['villages'] = esc_url_raw($file_urls['villages'] ?? '');
+        $districts = [];
+        $villages = [];
 
-        // Simpan pemetaan properti
+        // --- PROSES FILE KECAMATAN ---
+        $districts_file_url = $file_urls['districts'] ?? '';
+        if (!empty($districts_file_url)) {
+            $districts_file_path = str_replace(content_url(), WP_CONTENT_DIR, $districts_file_url);
+
+            if (file_exists($districts_file_path)) {
+                $geojson_string = file_get_contents($districts_file_path);
+                $geojson = json_decode($geojson_string, true);
+
+                if (json_last_error() === JSON_ERROR_NONE) {
+                    $id_key = $key_mappings['district_id'] ?? '';
+                    $name_key = $key_mappings['district_name'] ?? '';
+
+                    if ($id_key && $name_key) {
+                        foreach ($geojson['features'] as $feature) {
+                            $id = $feature['properties'][$id_key] ?? null;
+                            $name = $feature['properties'][$name_key] ?? 'N/A';
+                            if ($id && !isset($districts[$id])) {
+                                $districts[$id] = $name;
+                            }
+                        }
+                    }
+                }
+            } else {
+                return new WP_Error('file_not_found', 'File Kecamatan tidak ditemukan di server.', ['status' => 400]);
+            }
+        }
+
+        // --- PROSES FILE DESA ---
+        $villages_file_url = $file_urls['villages'] ?? '';
+        if (!empty($villages_file_url)) {
+            $villages_file_path = str_replace(content_url(), WP_CONTENT_DIR, $villages_file_url);
+
+            if (file_exists($villages_file_path)) {
+                $geojson_string = file_get_contents($villages_file_path);
+                $geojson = json_decode($geojson_string, true);
+
+                if (json_last_error() === JSON_ERROR_NONE) {
+                    $id_key = $key_mappings['village_id'] ?? '';
+                    $name_key = $key_mappings['village_name'] ?? '';
+                    $parent_district_key = $key_mappings['village_parent_district_id'] ?? '';
+                    if ($id_key && $name_key) {
+                        foreach ($geojson['features'] as $feature) {
+                            $id = $feature['properties'][$id_key] ?? null;
+                            $name = $feature['properties'][$name_key] ?? 'N/A';
+                            $parent_district = $feature['properties'][$parent_district_key] ?? 'N/A';
+                            if ($id && !isset($villages[$id])) {
+                                $villages["$parent_district.$id"] = [
+                                    'name' => $name,
+                                    'parent_district' => $parent_district
+                                ];
+                            }
+                        }
+                    }
+                }
+            } else {
+                return new WP_Error('file_not_found', 'File Desa tidak ditemukan di server.', ['status' => 400]);
+            }
+        }
+
+        // Simpan semua data yang sudah diproses dan di-mapping
+        $settings['map_files'] = $file_urls;
         $settings['map_keys'] = $key_mappings;
+        $settings['map_data']['districts'] = $districts;
+        $settings['map_data']['villages'] = $villages;
 
-        // Simpan semua pengaturan yang sudah diperbarui ke database
         return $this->save_settings($settings);
     }
 

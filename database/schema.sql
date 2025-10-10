@@ -2,8 +2,6 @@ CREATE TABLE `%%PREFIX%%sig_members` (
     `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
     `name` VARCHAR(255) NOT NULL,
     `full_address` TEXT,
-    `province_id` VARCHAR(10) NULL,
-    `regency_id` VARCHAR(10) NULL,
     `district_id` VARCHAR(10) NULL,
     `village_id` VARCHAR(20) NULL,
     `latitude` DECIMAL(10, 8) NULL,

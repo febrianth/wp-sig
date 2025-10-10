@@ -1,46 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from "../../components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
+import { useToast } from "../../hooks/use-toast";
 
-function GeneralSettings() {
-    const [settings, setSettings] = useState({});
-    const [loading, setLoading] = useState(true);
-    const [isSaving, setIsSaving] = useState(false);
+
+function MapUploader({ title, description, fileType, currentUrl, onFileUpload }) {
+    const [isUploading, setIsUploading] = useState(false);
     const [message, setMessage] = useState('');
-    
-    // State untuk menampung input dari form
-    const [fileUrls, setFileUrls] = useState({ districts: '', villages: '' });
-    const [keyMappings, setKeyMappings] = useState({
-        district_id: '', district_name: '',
-        village_id: '', village_name: ''
-    });
+    const { toast } = useToast();
 
-    async function fetchSettings() {
-        try {
-            const response = await fetch(sig_plugin_data.api_url + 'settings', { headers: { 'X-WP-Nonce': sig_plugin_data.nonce } });
-            const data = await response.json();
-            setSettings(data);
-            if (data.map_files) setFileUrls(data.map_files);
-            if (data.map_keys) setKeyMappings(data.map_keys);
-        } catch (error) { console.error("Gagal mengambil pengaturan:", error); }
-        setLoading(false);
-    }
-
-    useEffect(() => {
-        fetchSettings();
-    }, []);
-
-    const handleFileUpload = async (event, fileType) => {
+    const handleFileChange = async (event) => {
         const file = event.target.files[0];
         if (!file) return;
-        setMessage(`Mengunggah file ${fileType}...`);
-        
+
+        setIsUploading(true);
+        setMessage('Mengunggah...');
+
         const formData = new FormData();
         formData.append('geojson_file', file);
         formData.append('file_type', fileType);
-        
+
         try {
             const response = await fetch(sig_plugin_data.api_url + 'upload-geojson', {
                 method: 'POST',
@@ -49,100 +30,207 @@ function GeneralSettings() {
             });
             const result = await response.json();
             if (!response.ok) throw new Error(result.error || 'Upload gagal.');
-            
-            setFileUrls(prev => ({ ...prev, [fileType]: result.url }));
-            setMessage(`Upload ${fileType} berhasil!`);
+
+            setMessage('Upload berhasil!');
+            toast({
+                title: "Sukses!",
+                description: `Upload berhasil.`,
+            });
+            onFileUpload(fileType, result.url);
         } catch (error) {
+            toast({
+                variant: "destructive",
+                title: "Gagal unggah peta.",
+                description: error.message,
+            });
             setMessage(`Error: ${error.message}`);
         }
+        setIsUploading(false);
+    };
+
+    return (
+        <Card className="bg-muted/40">
+            <CardHeader>
+                <CardTitle>{title}</CardTitle>
+                <CardDescription>{description}</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Input id={`${fileType}-upload`} type="file" accept=".geojson,application/json" onChange={handleFileChange} disabled={isUploading} />
+                {currentUrl && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                        File tersimpan: <a href={currentUrl} target="_blank" rel="noopener noreferrer" className="underline">{currentUrl}</a>
+                    </p>
+                )}
+                {message && <p className="text-sm text-muted-foreground mt-2">{message}</p>}
+            </CardContent>
+        </Card>
+    );
+}
+
+function GeneralSettings() {
+    const [settings, setSettings] = useState({
+        map_files: {
+            districts: '',
+            villages: []
+        },
+        map_keys: {
+            district_id: '',
+            district_name: '',
+            village_id: '',
+            village_name: '',
+            village_parent_district_id: ''
+        }
+    });
+
+    const [loading, setLoading] = useState(true);
+    const [isSaving, setIsSaving] = useState(false);
+    const [message, setMessage] = useState('');
+    const { toast } = useToast();
+
+    const fetchSettings = useCallback(async () => {
+        setLoading(true);
+        try {
+            const response = await fetch(sig_plugin_data.api_url + 'settings', {
+                headers: { 'X-WP-Nonce': sig_plugin_data.nonce }
+            });
+            const data = await response.json();
+            // Gabungkan dengan state default untuk memastikan semua key ada
+            setSettings(prev => ({ ...prev, ...data }));
+        } catch (error) {
+            toast({
+                variant: "destructive",
+                title: "Gagal mengambil pengaturan.",
+                description: error,
+            });
+            console.error("Gagal mengambil pengaturan:", error);
+        }
+        setLoading(false);
+    }, []);
+
+    useEffect(() => {
+        fetchSettings();
+    }, [fetchSettings]);
+
+    const handleStateChange = (section, id, value) => {
+        setSettings(prev => ({
+            ...prev,
+            [section]: {
+                ...prev[section],
+                [id]: value
+            }
+        }));
     };
 
     const handleSaveSettings = async () => {
         setIsSaving(true);
-        setMessage('Memproses peta, ini mungkin butuh beberapa saat...');
-
+        setMessage('Menyimpan & memproses...');
+    
         try {
             const response = await fetch(sig_plugin_data.api_url + 'process-geojson', {
                 method: 'POST',
                 headers: { 'X-WP-Nonce': sig_plugin_data.nonce, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ file_urls: fileUrls, key_mappings: keyMappings }),
+                body: JSON.stringify({
+                    map_files: settings.map_files,
+                    map_keys: settings.map_keys
+                }),
             });
             const result = await response.json();
             if (!response.ok) throw new Error(result.error || 'Proses gagal.');
-            setMessage('Sukses! Peta telah diproses. Memuat ulang pengaturan...');
 
-            await fetchSettings();
+            setMessage('Sukses! Pengaturan peta telah diproses. Memuat ulang...');
+            await fetchSettings(); // Ambil data terbaru dari server
             setMessage('Sukses! Pengaturan peta telah diperbarui.');
+            toast({
+                title: "Sukses!",
+                description: `Pengaturan peta telah diperbarui.`,
+            });
         } catch (error) {
+            toast({
+                variant: "destructive",
+                title: "Gagal memproses peta.",
+                description: error.message,
+            });
             setMessage(`Error: ${error.message}`);
         }
         setIsSaving(false);
-    };
-
-    const handleKeyMappingChange = (e) => {
-        const { id, value } = e.target;
-        setKeyMappings(prev => ({ ...prev, [id]: value }));
     };
 
     if (loading) return <p>Memuat pengaturan...</p>;
 
     return (
         <div>
-            <h1 className="text-3xl font-bold mb-6">Pengaturan Peta & Data</h1>
-            <Card>
-                <CardHeader>
-                    <CardTitle>Konfigurasi Peta</CardTitle>
-                    <CardDescription>Unggah file GeoJSON untuk setiap tingkatan peta dan petakan propertinya.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-8">
-                    {/* District File Upload */}
-                    <div className="space-y-2">
-                        <Label htmlFor="districts-upload" className="font-bold">Peta Kecamatan</Label>
-                        <p className="text-sm text-muted-foreground">Satu file GeoJSON yang hanya berisi poligon semua kecamatan.</p>
-                        <Input id="districts-upload" type="file" accept=".geojson" onChange={(e) => handleFileUpload(e, 'districts')} />
-                        {fileUrls.districts && <p className="text-xs text-muted-foreground mt-1">File tersimpan: {fileUrls.districts}</p>}
-                    </div>
+            <div className="flex justify-between items-start mb-6">
+                <div>
+                    <h1 className="text-3xl font-bold">Pengaturan Peta & Data</h1>
+                    <p className="text-muted-foreground">Konfigurasi sumber data peta dan pemetaan properti GeoJSON.</p>
+                </div>
+                <Button onClick={handleSaveSettings} disabled={isSaving}>
+                    {isSaving ? 'Menyimpan...' : 'Simpan Semua Pengaturan'}
+                </Button>
+            </div>
 
-                    {/* Village File Upload */}
-                    <div className="space-y-2">
-                        <Label htmlFor="villages-upload" className="font-bold">Peta Desa</Label>
-                        <p className="text-sm text-muted-foreground">Satu file GeoJSON yang berisi poligon semua desa.</p>
-                        <Input id="villages-upload" type="file" accept=".geojson" onChange={(e) => handleFileUpload(e, 'villages')} />
-                        {fileUrls.villages && <p className="text-xs text-muted-foreground mt-1">File tersimpan: {fileUrls.villages}</p>}
-                    </div>
+            {message && <p className="text-sm text-blue-800 mb-4">{message}</p>}
 
-                    {/* Key Mapping Section */}
-                    <div>
-                        <Label className="font-bold">Pemetaan Properti Kunci</Label>
-                        <div className="grid grid-cols-2 gap-4 mt-2 p-4 border rounded-md">
-                            <div className="space-y-1">
-                                <Label htmlFor="district_id" className="text-xs">Properti ID Kecamatan</Label>
-                                <Input id="district_id" placeholder="Contoh: district_code" value={keyMappings.district_id} onChange={handleKeyMappingChange} />
-                            </div>
-                            <div className="space-y-1">
-                                <Label htmlFor="district_name" className="text-xs">Properti Nama Kecamatan</Label>
-                                <Input id="district_name" placeholder="Contoh: district" value={keyMappings.district_name} onChange={handleKeyMappingChange} />
-                            </div>
-                            <div className="space-y-1">
-                                <Label htmlFor="village_id" className="text-xs">Properti ID Desa</Label>
-                                <Input id="village_id" placeholder="Contoh: village_code" value={keyMappings.village_id} onChange={handleKeyMappingChange} />
-                            </div>
-                            <div className="space-y-1">
-                                <Label htmlFor="village_name" className="text-xs">Properti Nama Desa</Label>
-                                <Input id="village_name" placeholder="Contoh: village" value={keyMappings.village_name} onChange={handleKeyMappingChange} />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Kolom Kiri: Uploads */}
+                <div className="space-y-6">
+                    <MapUploader
+                        title="File Peta Kecamatan"
+                        description="Unggah satu file GeoJSON yang berisi poligon untuk semua kecamatan."
+                        fileType="districts"
+                        currentUrl={settings.map_files?.districts}
+                        onFileUpload={(type, url) => handleStateChange('map_files', type, url)}
+                    />
+                    <MapUploader
+                        title="File Peta Desa"
+                        description="Unggah satu file GeoJSON yang berisi poligon untuk semua desa."
+                        fileType="villages"
+                        currentUrl={settings.map_files?.villages}
+                        onFileUpload={(type, url) => handleStateChange('map_files', type, url)}
+                    />
+                </div>
+
+                {/* Kolom Kanan: Key Mappings */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Pemetaan Properti Kunci</CardTitle>
+                        <CardDescription>Isi dengan nama properti dari file GeoJSON yang relevan.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="p-4 border rounded-md space-y-4">
+                            <h3 className="text-sm font-semibold">Untuk File Peta Kecamatan</h3>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <Label htmlFor="district_id" className="text-xs">Properti ID Kecamatan</Label>
+                                    <Input id="district_id" placeholder="Contoh: id" value={settings.map_keys?.district_id || ''} onChange={(e) => handleStateChange('map_keys', e.target.id, e.target.value)} />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label htmlFor="district_name" className="text-xs">Properti Nama Kecamatan</Label>
+                                    <Input id="district_name" placeholder="Contoh: name" value={settings.map_keys?.district_name || ''} onChange={(e) => handleStateChange('map_keys', e.target.id, e.target.value)} />
+                                </div>
                             </div>
                         </div>
-                    </div>
-
-                    {/* Action Button */}
-                    <div>
-                        <Button onClick={handleSaveSettings} disabled={isSaving}>
-                            {isSaving ? 'Menyimpan...' : 'Simpan Semua Pengaturan'}
-                        </Button>
-                        {message && <p className="text-sm text-muted-foreground mt-2">{message}</p>}
-                    </div>
-                </CardContent>
-            </Card>
+                        <div className="p-4 border rounded-md space-y-4">
+                            <h3 className="text-sm font-semibold">Untuk File Peta Desa</h3>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <Label htmlFor="village_id" className="text-xs">Properti ID Desa</Label>
+                                    <Input id="village_id" placeholder="Contoh: id" value={settings.map_keys?.village_id || ''} onChange={(e) => handleStateChange('map_keys', e.target.id, e.target.value)} />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label htmlFor="village_name" className="text-xs">Properti Nama Desa</Label>
+                                    <Input id="village_name" placeholder="Contoh: name" value={settings.map_keys?.village_name || ''} onChange={(e) => handleStateChange('map_keys', e.target.id, e.target.value)} />
+                                </div>
+                            </div>
+                            <div className="space-y-1">
+                                <Label htmlFor="village_parent_district_id" className="text-xs">Properti ID Kecamatan (Induk)</Label>
+                                <Input id="village_parent_district_id" placeholder="Contoh: district_id" value={settings.map_keys?.village_parent_district_id || ''} onChange={(e) => handleStateChange('map_keys', e.target.id, e.target.value)} />
+                            </div>
+                        </div>
+                    </CardContent>
+                    <CardFooter>Pastikan data geojson memuat properti sesuai yang telah didefinisikan, dan ada properti penghubung dari parent ke children (Kecamatan ke Desa).</CardFooter>
+                </Card>
+            </div>
         </div>
     );
 }

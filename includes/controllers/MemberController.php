@@ -15,6 +15,27 @@ class MemberApiController {
             'callback'            => array( $this, 'get_members' ),
             'permission_callback' => array( $this, 'admin_permissions_check' ),
         ) );
+
+         // Rute POST (untuk Create)
+        register_rest_route('sig/v1', '/members', [
+            'methods' => 'POST',
+            'callback' => [$this, 'create_member'],
+            'permission_callback' => [$this, 'admin_permissions_check'],
+        ]);
+
+        // Rute untuk satu member (Update & Delete)
+        register_rest_route('sig/v1', '/members/(?P<id>\\d+)', [
+            [
+                'methods' => 'PUT', // atau PATCH
+                'callback' => [$this, 'update_member'],
+                'permission_callback' => [$this, 'admin_permissions_check'],
+            ],
+            [
+                'methods' => 'DELETE',
+                'callback' => [$this, 'delete_member'],
+                'permission_callback' => [$this, 'admin_permissions_check'],
+            ],
+        ]);
         // Nanti rute POST, PUT, DELETE untuk member akan kita tambahkan di sini.
     }
 
@@ -24,6 +45,43 @@ class MemberApiController {
     public function get_members() {
         $data = $this->member_service->get_all();
         return new WP_REST_Response( $data, 200 );
+    }
+
+      /**
+     * Callback untuk membuat member baru.
+     */
+    public function create_member(WP_REST_Request $request) {
+        $data = $request->get_json_params();
+        $result = $this->member_service->create($data);
+        if (is_wp_error($result)) {
+            return new WP_REST_Response(['message' => $result->get_error_message()], 400);
+        }
+        return new WP_REST_Response(['message' => 'Member berhasil dibuat', 'id' => $result], 201);
+    }
+
+    /**
+     * Callback untuk mengupdate member.
+     */
+    public function update_member(WP_REST_Request $request) {
+        $id = $request->get_param('id');
+        $data = $request->get_json_params();
+        $result = $this->member_service->update($id, $data);
+        if (is_wp_error($result)) {
+            return new WP_REST_Response(['message' => $result->get_error_message()], 400);
+        }
+        return new WP_REST_Response(['message' => 'Member berhasil diperbarui'], 200);
+    }
+
+    /**
+     * Callback untuk menghapus (soft delete) member.
+     */
+    public function delete_member(WP_REST_Request $request) {
+        $id = $request->get_param('id');
+        $result = $this->member_service->softDelete($id);
+        if (is_wp_error($result)) {
+            return new WP_REST_Response(['message' => $result->get_error_message()], 400);
+        }
+        return new WP_REST_Response(['message' => 'Member berhasil dihapus'], 200);
     }
 
     /**

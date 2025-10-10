@@ -6,6 +6,7 @@ import Navbar from './components/Navbar';
 
 import SettingsLayout from './components/layouts/SettingsLayout'; 
 import GeneralSettings from './pages/settings/GeneralSettings';
+import { Toaster } from './components/ui/toaster';
 
 function App() {
     return (
@@ -22,6 +23,7 @@ function App() {
                         <Route index element={<GeneralSettings />} /> {/* Halaman default untuk /settings */}
                     </Route>
                 </Routes>
+                <Toaster duration={3000} />
             </main>
         </>
     );
