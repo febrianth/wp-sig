@@ -4,7 +4,14 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { MoreHorizontal } from "lucide-react"
 
 export const generateColumns = ({ onEdit, onDelete, settings }) => [
-    { accessorKey: "name", header: "Nama" },
+    {
+        accessorKey: "name",
+        header: "Nama"
+    },
+    {
+        accessorKey: "phone_number",
+        header: "Nomor Telepon"
+    },
     {
         id: 'wilayah',
         header: "Wilayah",
@@ -15,6 +22,10 @@ export const generateColumns = ({ onEdit, onDelete, settings }) => [
             const villageName = villageObject ? villageObject.name : member.village_id;
             return <span>{villageName}, {districtName}</span>;
         }
+    },
+    {
+        accessorKey: "full_address",
+        header: "Alamat Lengkap"
     },
     {
         id: "actions",
