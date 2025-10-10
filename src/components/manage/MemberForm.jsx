@@ -26,15 +26,15 @@ function MemberForm({ initialData, settings, onSave, onCancel }) {
 	});
 
 	const handleChange = (e) => {
-		const { id, value } = e.target;
-
-		if (id === 'phone_number') {
-			// Hanya izinkan angka dan karakter '+' di awal
-			const sanitizedValue = value.replace(/[^0-9+]/g, '');
-			setFormData(prev => ({ ...prev, [id]: sanitizedValue }));
-			return; // Hentikan fungsi di sini
-		}
-	};
+        const { id, value } = e.target;
+        
+        if (id === 'phone_number') {
+            const sanitizedValue = value.replace(/[^0-9+]/g, '');
+            setFormData(prev => ({ ...prev, [id]: sanitizedValue }));
+        } else {
+            setFormData(prev => ({ ...prev, [id]: value }));
+        }
+    };
 
 	const handleSelectChange = (id, value) => {
         if (id === "district_id") {
@@ -86,8 +86,7 @@ function MemberForm({ initialData, settings, onSave, onCancel }) {
 				<Label htmlFor="phone_number">Nomor Telepon</Label>
 				<Input
 					id="phone_number"
-					type="tel" 
-					max
+					type="tel"
 					value={formData.phone_number || ''}
 					placeholder="ex : +628123456789"
 					onChange={handleChange}

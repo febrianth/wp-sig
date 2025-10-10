@@ -11,8 +11,6 @@ CREATE TABLE `%%PREFIX%%sig_members` (
     `updated_at` DATETIME NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     `deleted_at` DATETIME NULL DEFAULT NULL,
     PRIMARY KEY (`id`),
-    INDEX `province_id_index` (`province_id`),
-    INDEX `regency_id_index` (`regency_id`),
     INDEX `district_id_index` (`district_id`),
     INDEX `village_id_index` (`village_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
