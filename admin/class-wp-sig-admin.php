@@ -129,11 +129,12 @@ class Wp_Sig_Admin
 		);
 
 		wp_localize_script(
-			$this->plugin_name . '-spa-app', // Handle dari script React kita
+			$this->plugin_name . '-spa-app', // Handle dari script React 
 			'sig_plugin_data',  // Nama objek JavaScript yang akan dibuat
 			array(
-				'api_url' => esc_url_raw( rest_url( 'sig/v1/' ) ), // URL dasar API kita
-				'nonce'   => wp_create_nonce( 'wp_rest' )       // Kunci keamanan (KTP)
+				'api_url' => esc_url_raw( rest_url( 'sig/v1/' ) ), // URL dasar API 
+				'nonce'   => wp_create_nonce( 'wp_rest' ),       // Kunci keamanan (KTP)
+				'WP_SIG_PLUGIN_URL'   => WP_SIG_PLUGIN_URL,       // PLUGIN URL
 			)
 		);
 	}
@@ -156,7 +157,7 @@ class Wp_Sig_Admin
 	}
 
 	public function change_admin_footer_text( $footer_text ) {
-        // Cek apakah kita berada di halaman admin plugin SIG
+        // Cek apakah  berada di halaman admin plugin SIG
         $screen = get_current_screen();
         if ( isset( $screen->id ) && $screen->id === 'toplevel_page_sig_plugin_main' ) {
             return 'Terima kasih telah menggunakan <strong>SIG Plugin</strong>.';

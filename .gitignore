@@ -4,6 +4,7 @@
 
 # data prep
 /scripts/
+release.js
 
 # Hasil Build
 /build/

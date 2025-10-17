@@ -17,6 +17,52 @@ class MemberService
         return $this->wpdb->get_results("SELECT * FROM {$this->table_name} WHERE deleted_at IS NULL ORDER BY updated_at DESC", ARRAY_A);
     }
 
+    public function find_or_create($name, $phone_number, $additional_data = [])
+    {
+        $name = sanitize_text_field($name);
+        $phone_number = sanitize_text_field($phone_number);
+
+        $existing_id = $this->wpdb->get_var($this->wpdb->prepare(
+            "SELECT id FROM {$this->table_name} WHERE name = %s AND phone_number = %s AND deleted_at IS NULL",
+            $name,
+            $phone_number
+        ));
+
+        if ($existing_id) {
+            return (int) $existing_id;
+        }
+
+        $data_to_insert = array_merge(['name' => $name, 'phone_number' => $phone_number], $additional_data);
+        $success = $this->wpdb->insert($this->table_name, $data_to_insert);
+
+        return $success ? $this->wpdb->insert_id : false;
+    }
+
+    /**
+     * Menambahkan catatan partisipasi event untuk seorang member.
+     */
+    public function add_event_to_member($member_id, $event_id, $status = 'verified')
+    {
+        $table = $this->wpdb->prefix . 'sig_member_events';
+
+        // Cek agar tidak ada duplikat
+        $exists = $this->wpdb->get_var($this->wpdb->prepare(
+            "SELECT id FROM {$table} WHERE member_id = %d AND event_id = %d",
+            $member_id,
+            $event_id
+        ));
+
+        if ($exists) {
+            return true; // Sudah terdaftar
+        }
+
+        return $this->wpdb->insert($table, [
+            'member_id' => $member_id,
+            'event_id' => $event_id,
+            'status' => $status
+        ]);
+    }
+
     public function create(array $data)
     {
         // Sanitasi data sebelum insert

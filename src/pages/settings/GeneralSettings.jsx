@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import RegionCodeGuide from '../../components/settings/RegionCodeGuide';
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
@@ -124,7 +125,7 @@ function GeneralSettings() {
     const handleSaveSettings = async () => {
         setIsSaving(true);
         setMessage('Menyimpan & memproses...');
-    
+
         try {
             const response = await fetch(sig_plugin_data.api_url + 'process-geojson', {
                 method: 'POST',
@@ -190,46 +191,50 @@ function GeneralSettings() {
                     />
                 </div>
 
-                {/* Kolom Kanan: Key Mappings */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Pemetaan Properti Kunci</CardTitle>
-                        <CardDescription>Isi dengan nama properti dari file GeoJSON yang relevan.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="p-4 border rounded-md space-y-4">
-                            <h3 className="text-sm font-semibold">Untuk File Peta Kecamatan</h3>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1">
-                                    <Label htmlFor="district_id" className="text-xs">Properti ID Kecamatan</Label>
-                                    <Input id="district_id" placeholder="Contoh: id" value={settings.map_keys?.district_id || ''} onChange={(e) => handleStateChange('map_keys', e.target.id, e.target.value)} />
-                                </div>
-                                <div className="space-y-1">
-                                    <Label htmlFor="district_name" className="text-xs">Properti Nama Kecamatan</Label>
-                                    <Input id="district_name" placeholder="Contoh: name" value={settings.map_keys?.district_name || ''} onChange={(e) => handleStateChange('map_keys', e.target.id, e.target.value)} />
-                                </div>
-                            </div>
-                        </div>
-                        <div className="p-4 border rounded-md space-y-4">
-                            <h3 className="text-sm font-semibold">Untuk File Peta Desa</h3>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1">
-                                    <Label htmlFor="village_id" className="text-xs">Properti ID Desa</Label>
-                                    <Input id="village_id" placeholder="Contoh: id" value={settings.map_keys?.village_id || ''} onChange={(e) => handleStateChange('map_keys', e.target.id, e.target.value)} />
-                                </div>
-                                <div className="space-y-1">
-                                    <Label htmlFor="village_name" className="text-xs">Properti Nama Desa</Label>
-                                    <Input id="village_name" placeholder="Contoh: name" value={settings.map_keys?.village_name || ''} onChange={(e) => handleStateChange('map_keys', e.target.id, e.target.value)} />
+                <div className="space-y-6">
+                    {/* Kolom Kanan: Key Mappings */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Pemetaan Properti Kunci</CardTitle>
+                            <CardDescription>Isi dengan nama properti dari file GeoJSON yang relevan.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="p-4 border rounded-md space-y-4">
+                                <h3 className="text-sm font-semibold">Untuk File Peta Kecamatan</h3>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <Label htmlFor="district_id" className="text-xs">Properti ID Kecamatan</Label>
+                                        <Input id="district_id" placeholder="Contoh: id" value={settings.map_keys?.district_id || ''} onChange={(e) => handleStateChange('map_keys', e.target.id, e.target.value)} />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label htmlFor="district_name" className="text-xs">Properti Nama Kecamatan</Label>
+                                        <Input id="district_name" placeholder="Contoh: name" value={settings.map_keys?.district_name || ''} onChange={(e) => handleStateChange('map_keys', e.target.id, e.target.value)} />
+                                    </div>
                                 </div>
                             </div>
-                            <div className="space-y-1">
-                                <Label htmlFor="village_parent_district_id" className="text-xs">Properti ID Kecamatan (Induk)</Label>
-                                <Input id="village_parent_district_id" placeholder="Contoh: district_id" value={settings.map_keys?.village_parent_district_id || ''} onChange={(e) => handleStateChange('map_keys', e.target.id, e.target.value)} />
+                            <div className="p-4 border rounded-md space-y-4">
+                                <h3 className="text-sm font-semibold">Untuk File Peta Desa</h3>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <Label htmlFor="village_id" className="text-xs">Properti ID Desa</Label>
+                                        <Input id="village_id" placeholder="Contoh: id" value={settings.map_keys?.village_id || ''} onChange={(e) => handleStateChange('map_keys', e.target.id, e.target.value)} />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label htmlFor="village_name" className="text-xs">Properti Nama Desa</Label>
+                                        <Input id="village_name" placeholder="Contoh: name" value={settings.map_keys?.village_name || ''} onChange={(e) => handleStateChange('map_keys', e.target.id, e.target.value)} />
+                                    </div>
+                                </div>
+                                <div className="space-y-1">
+                                    <Label htmlFor="village_parent_district_id" className="text-xs">Properti ID Kecamatan (Induk)</Label>
+                                    <Input id="village_parent_district_id" placeholder="Contoh: district_id" value={settings.map_keys?.village_parent_district_id || ''} onChange={(e) => handleStateChange('map_keys', e.target.id, e.target.value)} />
+                                </div>
                             </div>
-                        </div>
-                    </CardContent>
-                    <CardFooter>Pastikan data geojson memuat properti sesuai yang telah didefinisikan, dan ada properti penghubung dari parent ke children (Kecamatan ke Desa).</CardFooter>
-                </Card>
+                        </CardContent>
+                        <CardFooter>Pastikan data geojson memuat properti sesuai yang telah didefinisikan, dan ada properti penghubung dari parent ke children (Kecamatan ke Desa).</CardFooter>
+                    </Card>
+
+                    <RegionCodeGuide mapData={settings?.map_data} />
+                </div>
             </div>
         </div>
     );

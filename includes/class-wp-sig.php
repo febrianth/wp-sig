@@ -128,14 +128,25 @@ class Wp_Sig
 		 * The class responsible for defining the controller Members
 		 * side of the site.
 		 */
-		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/controllers/MemberController.php';
-		
+		require_once plugin_dir_path(dirname(__FILE__)) . 'includes/controllers/MemberController.php';
+
 		/**
 		 * The class responsible for defining the controller Settings
 		 * side of the site.
 		 */
-		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/controllers/SettingController.php';
+		require_once plugin_dir_path(dirname(__FILE__)) . 'includes/controllers/SettingController.php';
 
+		/**
+		 * The class responsible for defining the controller import excel
+		 * side of the site.
+		 */
+		require_once plugin_dir_path(dirname(__FILE__)) . 'includes/controllers/ImportController.php';
+		
+		/**
+		 * The class responsible for defining the controller event
+		 * side of the site.
+		 */
+		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/controllers/EventController.php';
 		$this->loader = new Wp_Sig_Loader();
 	}
 
@@ -173,13 +184,19 @@ class Wp_Sig
 
 		$this->loader->add_action('admin_menu', $plugin_admin, 'add_admin_menu');
 
-		$this->loader->add_filter( 'admin_footer_text', $plugin_admin, 'change_admin_footer_text', 11 );
+		$this->loader->add_filter('admin_footer_text', $plugin_admin, 'change_admin_footer_text', 11);
 
 		$api_controller = new MemberApiController();
-		$this->loader->add_action( 'rest_api_init', $api_controller, 'register_routes' );
+		$this->loader->add_action('rest_api_init', $api_controller, 'register_routes');
 
 		$settings_api_controller = new SettingsApiController();
-		$this->loader->add_action( 'rest_api_init', $settings_api_controller, 'register_routes' );
+		$this->loader->add_action('rest_api_init', $settings_api_controller, 'register_routes');
+
+		$event_api_controller = new EventApiController();
+		$this->loader->add_action('rest_api_init', $event_api_controller, 'register_routes');
+
+		$import_api_controller = new ImportApiController();
+		$this->loader->add_action('rest_api_init', $import_api_controller, 'register_routes');
 	}
 
 	/**

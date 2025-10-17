@@ -17,9 +17,12 @@ export const generateColumns = ({ onEdit, onDelete, settings }) => [
         header: "Wilayah",
         cell: ({ row }) => {
             const member = row.original;
-            const districtName = settings?.map_data?.districts?.[member.district_id] || member.district_id;
+            const districtName = settings?.map_data?.districts?.[member.district_id]
+                || <span className="text-destructive">[{member.district_id || 'N/A'}]</span>;
             const villageObject = settings?.map_data?.villages?.[member.village_id];
-            const villageName = villageObject ? villageObject.name : member.village_id;
+            const villageName = villageObject
+                ? villageObject.name
+                : <span className="text-destructive">[{member.village_id || 'N/A'}]</span>;
             return <span>{villageName}, {districtName}</span>;
         }
     },
