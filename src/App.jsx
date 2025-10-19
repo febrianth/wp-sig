@@ -3,7 +3,6 @@ import { Toaster } from './components/ui/toaster';
 
 import Dashboard from './pages/Dashboard';
 import Home from './pages/Home';
-import Manage from './pages/Manage';
 import Navbar from './components/Navbar';
 
 import SettingsLayout from './components/layouts/SettingsLayout';
@@ -18,7 +17,6 @@ function App() {
                 <Routes>
                     <Route path="/" element={<Home />} />
                     <Route path="/dashboard" element={<Dashboard />} />
-                    <Route path="/manage" element={<Manage />} />
 
                     {/* 3. Buat Rute Bersarang untuk Pengaturan */}
                     <Route path="/settings" element={<SettingsLayout />}>

@@ -3,7 +3,7 @@ import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
 import { useToast } from "../../hooks/use-toast";
-import { Download, Upload, Info } from 'lucide-react';
+import { Download, Upload } from 'lucide-react';
 
 function ImportPage() {
     const [file, setFile] = useState(null);

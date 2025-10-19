@@ -2,7 +2,7 @@ import { Star, Github, Settings } from "lucide-react"
 import { NavLink } from "react-router-dom"
 
 export default function Navbar() {
-  const navItems = ["Dashboard", "Manage"]
+  const navItems = ["Dashboard"]
 
   return (
     <nav className="w-full bg-white border-b-4 border-black px-4 py-3">
