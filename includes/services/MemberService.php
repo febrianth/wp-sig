@@ -14,8 +14,6 @@ class MemberService
         $this->table_member_events = $this->wpdb->prefix . 'sig_member_events';
     }
 
-    // includes/services/MemberService.php
-
     /**
      * Mengambil semua data member dari database, lengkap dengan jumlah event yang diikuti.
      * @return array
@@ -25,11 +23,12 @@ class MemberService
         $sql = "
             SELECT 
                 m.*, 
-                COUNT(me.id) as event_count
+                COUNT(DISTINCT me.id) as event_count,
+                GROUP_CONCAT(DISTINCT me.event_id SEPARATOR ',') as event_ids
             FROM 
                 {$this->table_members} AS m
             LEFT JOIN 
-                {$this->table_member_events} AS me ON m.id = me.member_id
+                {$this->table_member_events} AS me ON m.id = me.member_id AND me.deleted_at IS NULL
             WHERE 
                 m.deleted_at IS NULL
             GROUP BY 
@@ -40,9 +39,14 @@ class MemberService
 
         $results = $this->wpdb->get_results($sql, ARRAY_A);
 
-        // Pastikan event_count adalah angka (integer)
         foreach ($results as &$result) {
             $result['event_count'] = (int) $result['event_count'];
+
+            if ($result['event_ids']) {
+                $result['event_ids'] = explode(',', $result['event_ids']);
+            } else {
+                $result['event_ids'] = [];
+            }
         }
 
         return $results;
@@ -96,23 +100,30 @@ class MemberService
 
     public function create(array $data)
     {
-        // Sanitasi data sebelum insert
+        // 1. Pisahkan data member dari data event
+        $event_ids = $data['event_ids'] ?? [];
+        unset($data['event_ids']); // Hapus dari array data member
+
+        // 2. Sanitasi data member
         $formatted_data = [
             'name'         => sanitize_text_field($data['name']),
             'full_address' => sanitize_textarea_field($data['full_address']),
             'phone_number' => sanitize_text_field($data['phone_number']),
             'district_id'  => sanitize_text_field($data['district_id']),
             'village_id'   => sanitize_text_field($data['village_id']),
-            'latitude'     => sanitize_text_field($data['latitude']),
-            'longitude'    => sanitize_text_field($data['longitude']),
         ];
 
         $success = $this->wpdb->insert($this->table_members, $formatted_data);
-
         if (!$success) {
-            return new WP_Error('db_insert_error', 'Gagal menyimpan data ke database.', ['status' => 500]);
+            return new WP_Error('db_insert_error', 'Gagal menyimpan data member.', ['status' => 500]);
         }
-        return $this->wpdb->insert_id;
+
+        $member_id = $this->wpdb->insert_id;
+
+        // 3. Hubungkan event-event
+        $this->sync_events($member_id, $event_ids);
+
+        return $member_id;
     }
 
     /**
@@ -120,39 +131,78 @@ class MemberService
      */
     public function update(int $id, array $data)
     {
-        // Sanitasi data
+        // 1. Pisahkan data member dari data event
+        $event_ids = $data['event_ids'] ?? [];
+        unset($data['event_ids']); // Hapus dari array data member
+
+        // 2. Sanitasi data member
         $formatted_data = [
             'name'         => sanitize_text_field($data['name']),
             'full_address' => sanitize_textarea_field($data['full_address']),
             'phone_number' => sanitize_text_field($data['phone_number']),
             'district_id'  => sanitize_text_field($data['district_id']),
             'village_id'   => sanitize_text_field($data['village_id']),
-            'latitude'     => sanitize_text_field($data['latitude']),
-            'longitude'    => sanitize_text_field($data['longitude']),
         ];
 
         $success = $this->wpdb->update($this->table_members, $formatted_data, ['id' => $id]);
-
         if ($success === false) {
-            return new WP_Error('db_update_error', 'Gagal memperbarui data.', ['status' => 500]);
+            return new WP_Error('db_update_error', 'Gagal memperbarui data member.', ['status' => 500]);
         }
+
+        // 3. Sinkronkan (hapus semua yang lama, tambah semua yang baru)
+        $this->sync_events($id, $event_ids);
+
         return true;
+    }
+
+    /**
+     * Method baru untuk sinkronisasi event (Private).
+     * Ini menghapus semua event lama dan menambahkan semua event baru dari array.
+     */
+    private function sync_events(int $member_id, array $event_ids)
+    {
+        // 1. Hapus semua koneksi event yang ada untuk member ini
+        $this->wpdb->delete($this->table_member_events, ['member_id' => $member_id]);
+
+        // 2. Tambahkan kembali koneksi untuk event yang baru dipilih
+        if (!empty($event_ids)) {
+            foreach ($event_ids as $event_id) {
+                $this->add_event_to_member($member_id, (int)$event_id, 'verified');
+            }
+        }
     }
 
     /**
      * Melakukan soft delete pada member.
      */
+    /**
+     * Melakukan soft delete pada member dan semua data event terkait.
+     */
     public function softDelete(int $id)
     {
-        $success = $this->wpdb->update(
-            $this->table_members,
-            ['deleted_at' => current_time('mysql', 1)], // Set deleted_at ke waktu saat ini (GMT)
+        // 1. Set waktu saat ini
+        $now = current_time('mysql', 1); // Waktu GMT
+
+        // 2. Soft delete data di tabel member
+        $success_member = $this->wpdb->update(
+            $this->table_members, // Asumsi nama properti Anda adalah table_members
+            ['deleted_at' => $now],
             ['id' => $id]
         );
 
-        if (!$success) {
-            return new WP_Error('db_delete_error', 'Gagal menghapus data.', ['status' => 500]);
+        // 3. Soft delete semua data di tabel member_events
+        // Asumsi nama properti tabel event Anda adalah $this->table_member_events
+        $success_events = $this->wpdb->update(
+            $this->table_member_events,
+            ['deleted_at' => $now],
+            ['member_id' => $id] // Targetkan semua event yang dimiliki member_id ini
+        );
+
+        // 4. Cek jika salah satu query gagal
+        if ($success_member === false || $success_events === false) {
+            return new WP_Error('db_delete_error', 'Gagal menghapus data member atau data event terkait.', ['status' => 500]);
         }
+
         return true;
     }
 }

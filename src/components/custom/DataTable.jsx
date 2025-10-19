@@ -1,7 +1,8 @@
 "use client"
 import React from "react"
-import { flexRender, getCoreRowModel, useReactTable, getFilteredRowModel, getPaginationRowModel } from "@tanstack/react-table"
+import { flexRender, getCoreRowModel, useReactTable, getFilteredRowModel, getPaginationRowModel, getSortedRowModel } from "@tanstack/react-table"
 import { Input } from "../../components/ui/input"
+import { Button } from "../../components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table"
 import {
 	Pagination,
@@ -11,9 +12,11 @@ import {
 	PaginationNext,
 	PaginationPrevious,
 } from '../../components/ui/pagination'
+import { ArrowUpDown, ArrowDown, ArrowUp } from "lucide-react"
 
 export function DataTable({ columns, data }) {
-	const [filtering, setFiltering] = React.useState('')
+	const [filtering, setFiltering] = React.useState('');
+	const [sorting, setSorting] = React.useState([]);
 
 	const table = useReactTable({
 		data,
@@ -21,13 +24,18 @@ export function DataTable({ columns, data }) {
 		getCoreRowModel: getCoreRowModel(),
 		getFilteredRowModel: getFilteredRowModel(),
 		getPaginationRowModel: getPaginationRowModel(),
-		state: { globalFilter: filtering },
+		getSortedRowModel: getSortedRowModel(), // <-- 3. Aktifkan sorting
+		state: {
+			globalFilter: filtering,
+			sorting: sorting, // <-- 4. Hubungkan state
+		},
 		onGlobalFilterChange: setFiltering,
-		initialState: { 
-			pagination: { 
+		onSortingChange: setSorting, // <-- 5. Hubungkan handler
+		initialState: {
+			pagination: {
 				pageSize: 10 // Menampilkan baris per halaman
-			} 
-		} 
+			}
+		}
 	})
 
 	// --- NOMOR HALAMAN DINAMIS ---
@@ -55,7 +63,24 @@ export function DataTable({ columns, data }) {
 							<TableRow key={headerGroup.id}>
 								{headerGroup.headers.map((header) => (
 									<TableHead key={header.id}>
-										{header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+										{header.isPlaceholder ? null : (
+											<Button
+												variant="ghost"
+												onClick={header.column.getToggleSortingHandler()}
+												disabled={!header.column.getCanSort()} // Nonaktifkan tombol jika kolom tidak bisa disort
+												className={!header.column.getCanSort() ? "cursor-default" : ""}
+											>
+												{flexRender(header.column.columnDef.header, header.getContext())}
+
+												{/* Tampilkan ikon secara dinamis berdasarkan status sorting */}
+												{header.column.getCanSort() && (
+													{
+														'asc': <ArrowUp className="ml-2 h-4 w-4" />,
+														'desc': <ArrowDown className="ml-2 h-4 w-4" />,
+													}[header.column.getIsSorted()] ?? <ArrowUpDown className="ml-2 h-4 w-4 opacity-30" />
+												)}
+											</Button>
+										)}
 									</TableHead>
 								))}
 							</TableRow>

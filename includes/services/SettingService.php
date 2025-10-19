@@ -19,7 +19,12 @@ class SettingsService
      */
     public function get_settings()
     {
-        return get_option($this->option_name, []);
+        $settings = get_option($this->option_name, []);
+        if (empty($settings['api_key'])) {
+            $settings['api_key'] = $this->generate_api_key();
+            $this->save_settings($settings);
+        }
+        return $settings;
     }
 
     /**
@@ -203,5 +208,18 @@ class SettingsService
             $settings['default_view']['code'] = sanitize_text_field($settings['default_view']['code']);
         }
         return $settings;
+    }
+
+    private function generate_api_key() {
+        // wp_generate_password adalah fungsi WordPress yang aman secara kriptografis
+        return 'sig_key_' . wp_generate_password(40, false, false);
+    }
+
+    public function regenerate_api_key() {
+        $settings = $this->get_settings(); // Ambil semua pengaturan yang ada
+        $new_key = $this->generate_api_key();
+        $settings['api_key'] = $new_key;
+        $this->save_settings($settings);
+        return $new_key; // Kembalikan key yang baru saja dibuat
     }
 }

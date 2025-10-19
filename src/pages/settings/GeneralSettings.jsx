@@ -5,7 +5,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { useToast } from "../../hooks/use-toast";
-
+import { KeyRound, RefreshCw } from 'lucide-react'; // Impor ikon
+import { cn } from '../../lib/utils';
 
 function MapUploader({ title, description, fileType, currentUrl, onFileUpload }) {
     const [isUploading, setIsUploading] = useState(false);
@@ -86,6 +87,7 @@ function GeneralSettings() {
     const [loading, setLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [message, setMessage] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
     const { toast } = useToast();
 
     const fetchSettings = useCallback(async () => {
@@ -107,6 +109,29 @@ function GeneralSettings() {
         }
         setLoading(false);
     }, []);
+
+    const handleRegenerateKey = async () => {
+        if (!confirm('Anda yakin ingin membuat API key baru? Key lama yang mungkin sedang dipakai di Google Form akan segera tidak valid.')) {
+            return;
+        }
+        
+        setIsGenerating(true);
+        try {
+            const response = await fetch(sig_plugin_data.api_url + 'settings/regenerate-api-key', {
+                method: 'POST',
+                headers: { 'X-WP-Nonce': sig_plugin_data.nonce },
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || 'Gagal membuat key.');
+            
+            // Update state settings lokal dengan key baru
+            setSettings(prev => ({ ...prev, api_key: result.api_key }));
+            toast({ title: "Sukses!", description: "API Key baru telah dibuat." });
+        } catch (error) {
+            toast({ variant: "destructive", title: "Gagal", description: error.message });
+        }
+        setIsGenerating(false);
+    };
 
     useEffect(() => {
         fetchSettings();
@@ -231,6 +256,35 @@ function GeneralSettings() {
                             </div>
                         </CardContent>
                         <CardFooter>Pastikan data geojson memuat properti sesuai yang telah didefinisikan, dan ada properti penghubung dari parent ke children (Kecamatan ke Desa).</CardFooter>
+                    </Card>
+
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center">
+                                <KeyRound className="mr-2 h-5 w-5" /> API Key (Google Form)
+                            </CardTitle>
+                            <CardDescription>Gunakan key ini di Google Apps Script Anda untuk mengirim data.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div>
+                                <Label htmlFor="api_key">API Key Anda (Rahasia)</Label>
+                                <Input 
+                                    id="api_key" 
+                                    type="text" 
+                                    value={settings?.api_key || 'Membuat key...'} 
+                                    readOnly 
+                                    className="font-mono"
+                                />
+                            </div>
+                            <Button 
+                                variant="outline" 
+                                onClick={handleRegenerateKey} 
+                                disabled={isGenerating}
+                            >
+                                <RefreshCw className={cn("mr-2 h-4 w-4", isGenerating && "animate-spin")} />
+                                {isGenerating ? 'Membuat...' : 'Buat Ulang API Key'}
+                            </Button>
+                        </CardContent>
                     </Card>
 
                     <RegionCodeGuide mapData={settings?.map_data} />

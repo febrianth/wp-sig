@@ -43,6 +43,12 @@ class SettingsApiController
             'callback'            => [$this, 'handle_process_maps'],
             'permission_callback' => [$this, 'admin_permissions_check'],
         ]);
+
+        register_rest_route('sig/v1', '/settings/regenerate-api-key', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'handle_regenerate_key'],
+            'permission_callback' => [$this, 'admin_permissions_check'],
+        ]);
     }
 
     /**
@@ -52,6 +58,15 @@ class SettingsApiController
     {
         $settings = $this->settings_service->get_settings();
         return new WP_REST_Response($settings, 200);
+    }
+
+    public function handle_regenerate_key(WP_REST_Request $request) {
+        $new_key = $this->settings_service->regenerate_api_key();
+        if ($new_key) {
+            return new WP_REST_Response(['api_key' => $new_key], 200);
+        } else {
+            return new WP_REST_Response(['error' => 'Gagal membuat API key baru.'], 500);
+        }
     }
 
     /**

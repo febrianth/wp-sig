@@ -55,7 +55,7 @@ class EventService
     public function get_all_active_events()
     {
         return $this->wpdb->get_results(
-            "SELECT id, event_name, event_date FROM {$this->table_name} WHERE deleted_at IS NULL ORDER BY event_date DESC",
+            "SELECT id, event_name, started_at, end_at FROM {$this->table_name} WHERE deleted_at IS NULL ORDER BY started_at DESC",
             ARRAY_A
         );
     }

@@ -1,5 +1,6 @@
 "use client"
 import { Button } from "../../components/ui/button"
+import { Badge } from "../../components/ui/badge"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu"
 import { MoreHorizontal } from "lucide-react"
 
@@ -24,11 +25,22 @@ export const generateColumns = ({ onEdit, onDelete, settings }) => [
                 ? villageObject.name
                 : <span className="text-destructive">[{member.village_id || 'N/A'}]</span>;
             return <span>{villageName}, {districtName}</span>;
-        }
+        },
+        enableSorting: false, // <-- Nonaktifkan sorting untuk kolom ini
     },
     {
         accessorKey: "full_address",
         header: "Alamat Lengkap"
+    },
+    {
+        accessorKey: "event_count", // Ambil data 'badge' yang sudah kita proses
+        header: "Peringkat",
+        cell: ({ row }) => {
+            // Tampilan (cell) tetap mengambil data 'badge' dari 'row.original'
+            const badge = row.original.badge;
+            if (!badge) return null;
+            return <Badge variant={badge.variant}>{badge.text}</Badge>;
+        }
     },
     {
         id: "actions",
@@ -49,5 +61,6 @@ export const generateColumns = ({ onEdit, onDelete, settings }) => [
                 </div>
             );
         },
+        enableSorting: false, // <-- PERBAIKAN 2: Nonaktifkan sorting untuk kolom Aksi
     },
 ];

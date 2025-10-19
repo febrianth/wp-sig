@@ -7,22 +7,70 @@ import { Textarea } from "../ui/textarea";
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '../../components/ui/select'
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "../../components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "../../components/ui/popover";
+import { Badge } from "../../components/ui/badge";
+import { Check, ChevronsUpDown, X } from "lucide-react";
 
-function MemberForm({ initialData, settings, onSave, onCancel }) {
+function MultiSelectCombobox({ options, selected, onChange, placeholder }) {
+    const [open, setOpen] = useState(false);
+
+    const handleToggle = (value) => {
+        if (selected.includes(value)) {
+            onChange(selected.filter(id => id !== value)); // Hapus
+        } else {
+            onChange([...selected, value]); // Tambah
+        }
+    };
+
+    const selectedLabels = selected.map(id => options.find(opt => opt.value === id)?.label);
+
+    return (
+        <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+                <Button variant="outline" role="combobox" aria-expanded={open} className="w-full justify-between h-auto min-h-10 py-2 flex-wrap">
+                    <div className="flex gap-1 flex-wrap">
+                        {selectedLabels.length > 0 ? (
+                            selectedLabels.map(label => <Badge key={label} variant="secondary">{label}</Badge>)
+                        ) : (
+                            <span className="text-muted-foreground">{placeholder}</span>
+                        )}
+                    </div>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                <Command>
+                    <CommandInput placeholder="Cari event..." />
+                    <CommandList>
+                        <CommandEmpty>Event tidak ditemukan.</CommandEmpty>
+                        <CommandGroup>
+                            {options.map((opt) => (
+                                <CommandItem key={opt.value} value={opt.label} onSelect={() => handleToggle(opt.value)}>
+                                    <Check className={cn("mr-2 h-4 w-4", selected.includes(opt.value) ? "opacity-100" : "opacity-0")} />
+                                    {opt.label}
+                                </CommandItem>
+                            ))}
+                        </CommandGroup>
+                    </CommandList>
+                </Command>
+            </PopoverContent>
+        </Popover>
+    );
+}
+
+function MemberForm({ initialData, settings, onSave, onCancel, allEvents }) {
 	const [formData, setFormData] = useState(initialData || {
 		name: "",
 		full_address: "",
 		phone_number: "",
 		district_id: "",
 		village_id: "",
-		latitude: "",
-		longitude: "",
+		event_ids: []
 	});
 
 	const handleChange = (e) => {
@@ -44,6 +92,12 @@ function MemberForm({ initialData, settings, onSave, onCancel }) {
             setFormData(prev => ({ ...prev, [id]: value }));
         }
     };
+
+	const handleEventsChange = (eventIds) => {
+        setFormData(prev => ({ ...prev, event_ids: eventIds }));
+    };
+
+	const eventOptions = allEvents.map(event => ({ value: event.id, label: event.event_name }));
 
 	// Siapkan data untuk options dari "kamus data" di settings
 	const districts = settings?.map_data?.districts
@@ -136,6 +190,15 @@ function MemberForm({ initialData, settings, onSave, onCancel }) {
                         ))}
                     </SelectContent>
                 </Select>
+            </div>
+			<div className="space-y-1">
+                <Label>Event yang Diikuti</Label>
+                <MultiSelectCombobox
+                    options={eventOptions}
+                    selected={formData.event_ids}
+                    onChange={handleEventsChange}
+                    placeholder="Pilih event..."
+                />
             </div>
 
 			<div className="flex justify-end space-x-2 pt-4">

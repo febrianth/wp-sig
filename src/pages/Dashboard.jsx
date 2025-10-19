@@ -26,9 +26,23 @@ function SetupCta() {
     );
 }
 
+function getBadgeForEventCount(count) {
+    if (count >= 10) {
+        return { text: 'Platinum', variant: 'destructive' }; // 
+    }
+    if (count >= 5) {
+        return { text: 'Gold', variant: 'default' };
+    }
+    if (count >= 1) {
+        return { text: 'Silver', variant: 'secondary' };
+    }
+    return { text: 'New', variant: 'neutral' };
+}
+
 function Dashboard() {
     const [settings, setSettings] = useState(null);
     const [members, setMembers] = useState([]);
+    const [events, setEvents] = useState([]); // <-- STATE BARU UNTUK DAFTAR EVENT
     const [loading, setLoading] = useState(true);
     const [view, setView] = useState({ level: 'regency', code: null, parentCode: null });
     const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -40,14 +54,17 @@ function Dashboard() {
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            const [settingsRes, membersRes] = await Promise.all([
+            const [settingsRes, membersRes, eventsRes] = await Promise.all([
                 fetch(sig_plugin_data.api_url + 'settings', { headers: { 'X-WP-Nonce': sig_plugin_data.nonce } }),
-                fetch(sig_plugin_data.api_url + 'members', { headers: { 'X-WP-Nonce': sig_plugin_data.nonce } })
+                fetch(sig_plugin_data.api_url + 'members', { headers: { 'X-WP-Nonce': sig_plugin_data.nonce } }),
+                fetch(sig_plugin_data.api_url + 'events', { headers: { 'X-WP-Nonce': sig_plugin_data.nonce } }) // <-- PANGGILAN API BARU
             ]);
             const settingsData = await settingsRes.json();
             const membersData = await membersRes.json();
+            const eventsData = await eventsRes.json(); // <-- DAPATKAN DATA EVENT
             setSettings(settingsData);
             setMembers(membersData);
+            setEvents(eventsData); // <-- SIMPAN DATA EVENT
         } catch (error) { console.error("Gagal mengambil data:", error); }
         setLoading(false);
     }, []);
@@ -57,10 +74,15 @@ function Dashboard() {
     }, [fetchData]);
 
     const filteredMembers = useMemo(() => {
-        if (!view.code) return members; // Tampilan awal, tampilkan semua
-        if (view.level === 'district') return members.filter(m => m.district_id === view.code);
-        if (view.level === 'village') return members.filter(m => m.village_id === `${view.parentCode}.${view.code}`);
-        return members;
+        const rankedMembers = members.map(member => ({
+            ...member,
+            badge: getBadgeForEventCount(member.event_count || 0)
+        }));
+
+        if (!view.code) return rankedMembers; // Tampilan awal, tampilkan semua
+        if (view.level === 'district') return rankedMembers.filter(m => m.district_id === view.code);
+        if (view.level === 'village') return rankedMembers.filter(m => m.village_id === `${view.parentCode}.${view.code}`);
+        return rankedMembers;
     }, [view, members]);
 
     const aggregatedData = useMemo(() => {
@@ -262,6 +284,7 @@ function Dashboard() {
                     {settings && (
                         <MemberForm
                             settings={settings}
+                            allEvents={events} // <-- Teruskan daftar event ke form
                             initialData={editingMember}
                             onSave={handleSave}
                             onCancel={() => setIsDialogOpen(false)}
