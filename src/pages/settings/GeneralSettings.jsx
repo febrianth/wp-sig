@@ -5,7 +5,18 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { useToast } from "../../hooks/use-toast";
-import { KeyRound, RefreshCw } from 'lucide-react'; // Impor ikon
+import { KeyRound, RefreshCw, Eye, EyeOff } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "../../components/ui/alert-dialog";
 import { cn } from '../../lib/utils';
 
 function MapUploader({ title, description, fileType, currentUrl, onFileUpload }) {
@@ -69,6 +80,88 @@ function MapUploader({ title, description, fileType, currentUrl, onFileUpload })
     );
 }
 
+function ApiKeyCard({ apiKey, onRegenerate, isGenerating }) {
+    // 1. Buat state internal untuk mengontrol visibilitas
+    const [isKeyVisible, setIsKeyVisible] = useState(false);
+
+    // 2. Buat fungsi untuk toggle visibilitas
+    const toggleVisibility = () => {
+        setIsKeyVisible(prev => !prev);
+    };
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center">
+                    <KeyRound className="mr-2 h-5 w-5" /> API Key (Google Form)
+                </CardTitle>
+                <CardDescription>Gunakan key ini di Google Apps Script Anda untuk mengirim data.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div>
+                    <Label htmlFor="api_key">API Key Anda (Rahasia)</Label>
+                    {/* 3. Gunakan div 'relative' untuk menempatkan ikon di dalam input */}
+                    <div className="relative">
+                        <Input 
+                            id="api_key" 
+                            // 4. Ganti 'type' secara dinamis
+                            type={isKeyVisible ? "text" : "password"} 
+                            value={apiKey || 'Membuat key...'} 
+                            readOnly 
+                            className="font-mono pr-10" // Beri ruang di kanan untuk ikon
+                        />
+                        {/* 5. Buat tombol untuk toggle ikon */}
+                        <Button 
+                            type="button" // Pastikan 'type' adalah 'button'
+                            variant="ghost" 
+                            size="sm" 
+                            className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                            onClick={toggleVisibility}
+                        >
+                            {/* 6. Ganti ikon secara dinamis */}
+                            {isKeyVisible ? (
+                                <EyeOff className="h-4 w-4" />
+                            ) : (
+                                <Eye className="h-4 w-4" />
+                            )}
+                        </Button>
+                    </div>
+                </div>
+
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        {/* Tombol ini sekarang hanya akan MEMBUKA dialog */}
+                        <Button 
+                            variant="outline" 
+                            disabled={isGenerating}
+                        >
+                            <RefreshCw className={cn("mr-2 h-4 w-4", isGenerating && "animate-spin")} />
+                            {isGenerating ? 'Membuat...' : 'Buat Ulang API Key'}
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Anda Yakin?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Tindakan ini akan membuat API key baru dan membatalkan key yang lama. 
+                                Anda harus memperbarui key ini di Google Apps Script Anda agar tetap berfungsi.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            {/* Tombol Batal */}
+                            <AlertDialogCancel>Batal</AlertDialogCancel>
+                            {/* Tombol Aksi, yang sekarang menjalankan fungsi onRegenerate */}
+                            <AlertDialogAction onClick={onRegenerate}>
+                                Ya, Buat Ulang
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+            </CardContent>
+        </Card>
+    );
+}
+
 function GeneralSettings() {
     const [settings, setSettings] = useState({
         map_files: {
@@ -111,10 +204,6 @@ function GeneralSettings() {
     }, []);
 
     const handleRegenerateKey = async () => {
-        if (!confirm('Anda yakin ingin membuat API key baru? Key lama yang mungkin sedang dipakai di Google Form akan segera tidak valid.')) {
-            return;
-        }
-        
         setIsGenerating(true);
         try {
             const response = await fetch(sig_plugin_data.api_url + 'settings/regenerate-api-key', {
@@ -214,10 +303,7 @@ function GeneralSettings() {
                         currentUrl={settings.map_files?.villages}
                         onFileUpload={(type, url) => handleStateChange('map_files', type, url)}
                     />
-                </div>
 
-                <div className="space-y-6">
-                    {/* Kolom Kanan: Key Mappings */}
                     <Card>
                         <CardHeader>
                             <CardTitle>Pemetaan Properti Kunci</CardTitle>
@@ -258,36 +344,17 @@ function GeneralSettings() {
                         <CardFooter>Pastikan data geojson memuat properti sesuai yang telah didefinisikan, dan ada properti penghubung dari parent ke children (Kecamatan ke Desa).</CardFooter>
                     </Card>
 
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center">
-                                <KeyRound className="mr-2 h-5 w-5" /> API Key (Google Form)
-                            </CardTitle>
-                            <CardDescription>Gunakan key ini di Google Apps Script Anda untuk mengirim data.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div>
-                                <Label htmlFor="api_key">API Key Anda (Rahasia)</Label>
-                                <Input 
-                                    id="api_key" 
-                                    type="text" 
-                                    value={settings?.api_key || 'Membuat key...'} 
-                                    readOnly 
-                                    className="font-mono"
-                                />
-                            </div>
-                            <Button 
-                                variant="outline" 
-                                onClick={handleRegenerateKey} 
-                                disabled={isGenerating}
-                            >
-                                <RefreshCw className={cn("mr-2 h-4 w-4", isGenerating && "animate-spin")} />
-                                {isGenerating ? 'Membuat...' : 'Buat Ulang API Key'}
-                            </Button>
-                        </CardContent>
-                    </Card>
-
                     <RegionCodeGuide mapData={settings?.map_data} />
+                </div>
+
+                <div className="space-y-6">
+                    {/* Kolom Kanan: Key Mappings */}
+
+                    <ApiKeyCard 
+                        apiKey={settings?.api_key}
+                        isGenerating={isGenerating}
+                        onRegenerate={handleRegenerateKey}
+                    />
                 </div>
             </div>
         </div>

@@ -8,6 +8,7 @@ import Navbar from './components/Navbar';
 import SettingsLayout from './components/layouts/SettingsLayout';
 import GeneralSettings from './pages/settings/GeneralSettings';
 import ImportPage from './pages/settings/importPage';
+import EventPage from './pages/EventPage';
 
 function App() {
     return (
@@ -17,6 +18,7 @@ function App() {
                 <Routes>
                     <Route path="/" element={<Home />} />
                     <Route path="/dashboard" element={<Dashboard />} />
+                    <Route path="/make-event" element={<EventPage />} />
 
                     {/* 3. Buat Rute Bersarang untuk Pengaturan */}
                     <Route path="/settings" element={<SettingsLayout />}>

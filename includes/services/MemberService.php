@@ -27,8 +27,11 @@ class MemberService
                 GROUP_CONCAT(DISTINCT me.event_id SEPARATOR ',') as event_ids
             FROM 
                 {$this->table_members} AS m
-            LEFT JOIN 
-                {$this->table_member_events} AS me ON m.id = me.member_id AND me.deleted_at IS NULL
+            INNER JOIN 
+                {$this->table_member_events} AS me 
+                    ON m.id = me.member_id 
+                   AND me.status = 'verified'
+                   AND me.deleted_at IS NULL
             WHERE 
                 m.deleted_at IS NULL
             GROUP BY 

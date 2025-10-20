@@ -141,12 +141,25 @@ class Wp_Sig
 		 * side of the site.
 		 */
 		require_once plugin_dir_path(dirname(__FILE__)) . 'includes/controllers/ImportController.php';
-		
+
 		/**
 		 * The class responsible for defining the controller event
 		 * side of the site.
 		 */
-		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/controllers/EventController.php';
+		require_once plugin_dir_path(dirname(__FILE__)) . 'includes/controllers/EventController.php';
+
+		/**
+		 * The class responsible for defining the controller event schedule API
+		 * side of the site.
+		 */
+		require_once plugin_dir_path(dirname(__FILE__)) . 'includes/controllers/EventScheduleApiController.php';
+		
+		/**
+		 * The class responsible for defining the controller event form API
+		 * side of the site.
+		 */
+		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/controllers/formApiController.php';
+
 		$this->loader = new Wp_Sig_Loader();
 	}
 
@@ -186,8 +199,8 @@ class Wp_Sig
 
 		$this->loader->add_filter('admin_footer_text', $plugin_admin, 'change_admin_footer_text', 11);
 
-		$api_controller = new MemberApiController();
-		$this->loader->add_action('rest_api_init', $api_controller, 'register_routes');
+		$member_api_controller = new MemberApiController();
+		$this->loader->add_action('rest_api_init', $member_api_controller, 'register_routes');
 
 		$settings_api_controller = new SettingsApiController();
 		$this->loader->add_action('rest_api_init', $settings_api_controller, 'register_routes');
@@ -197,6 +210,12 @@ class Wp_Sig
 
 		$import_api_controller = new ImportApiController();
 		$this->loader->add_action('rest_api_init', $import_api_controller, 'register_routes');
+
+		$event_schedule_controller = new EventScheduleApiController();
+		$this->loader->add_action('rest_api_init', $event_schedule_controller, 'register_routes');
+
+		$form_api_controller = new formApiController();
+		$this->loader->add_action('rest_api_init', $form_api_controller, 'register_routes');
 	}
 
 	/**
