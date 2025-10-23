@@ -19,11 +19,26 @@ class SettingsService
      */
     public function get_settings()
     {
+        $defaults = [
+            'map_files' => [],
+            'map_keys' => [],
+            'map_data' => [],
+            'badge_thresholds' => [
+                'gold'      => 3,
+                'silver'    => 2,
+                'bronze'    => 1
+            ]
+        ];
+
+        $settings = get_option($this->option_name, []);
+        $settings = wp_parse_args($settings, $defaults);
+
         $settings = get_option($this->option_name, []);
         if (empty($settings['api_key'])) {
             $settings['api_key'] = $this->generate_api_key();
             $this->save_settings($settings);
         }
+
         return $settings;
     }
 
@@ -109,7 +124,7 @@ class SettingsService
         return $dirs;
     }
 
-    public function process_uploaded_maps($file_urls, $key_mappings)
+    public function process_uploaded_maps($file_urls, $key_mappings, $badge_thresholds)
     {
         $settings = $this->get_settings();
 
@@ -178,6 +193,7 @@ class SettingsService
 
         // Simpan semua data yang sudah diproses dan di-mapping
         $settings['map_files'] = $file_urls;
+        $settings['badge_thresholds'] = $badge_thresholds;
         $settings['map_keys'] = $key_mappings;
         $settings['map_data']['districts'] = $districts;
         $settings['map_data']['villages'] = $villages;
@@ -207,6 +223,13 @@ class SettingsService
         if (isset($settings['default_view']['code'])) {
             $settings['default_view']['code'] = sanitize_text_field($settings['default_view']['code']);
         }
+
+        if (isset($settings['badge_thresholds'])) {
+            $settings['badge_thresholds']['gold']   = absint($settings['badge_thresholds']['gold'] ?? 3);
+            $settings['badge_thresholds']['silver'] = absint($settings['badge_thresholds']['silver'] ?? 2);
+            $settings['badge_thresholds']['bronze'] = absint($settings['badge_thresholds']['bronze'] ?? 1);
+        }
+        
         return $settings;
     }
 

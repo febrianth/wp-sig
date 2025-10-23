@@ -54,10 +54,20 @@ class EventService
      */
     public function get_all_active_events()
     {
-        return $this->wpdb->get_results(
+        $data = $this->wpdb->get_results(
             "SELECT id, event_name, started_at, end_at FROM {$this->table_name} WHERE deleted_at IS NULL ORDER BY started_at DESC",
             ARRAY_A
         );
+
+        $newData = [];
+        if (!empty($data)) {
+            foreach ($data as $item) {
+                $newData[$item['id']] = $item;
+            }
+            $data = $newData;
+        }
+
+        return $data;
     }
 
     public function get_recent_completed_events()
@@ -93,7 +103,7 @@ class EventService
         if ($event) {
             $members_table = $this->wpdb->prefix . 'sig_members';
             $member_events_table = $this->wpdb->prefix . 'sig_member_events';
-            
+
             // PERBAIKAN QUERY: Ambil lebih banyak data dan filter status yang relevan
             $event['pending_members'] = $this->wpdb->get_results(
                 $this->wpdb->prepare(
@@ -115,7 +125,8 @@ class EventService
         return $event;
     }
 
-    public function update_member_event_status($member_event_id, $status) {
+    public function update_member_event_status($member_event_id, $status)
+    {
         // Validasi status untuk keamanan
         $allowed_statuses = ['pending', 'verified', 'rejected'];
         if (!in_array($status, $allowed_statuses)) {

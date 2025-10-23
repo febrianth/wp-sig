@@ -5,6 +5,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../
 
 function RegionMap({ className, geojsonUrl, aggregatedData, idKey, nameKey, onRegionClick, filterByCode, filterKey, districtId = null, districtKey = null }) {
     const svgRef = useRef(null);
+    const containerRef = useRef(null);
     const [tooltip, setTooltip] = useState({ visible: false, content: '', x: 0, y: 0 });
 
     useEffect(() => {
@@ -13,24 +14,17 @@ function RegionMap({ className, geojsonUrl, aggregatedData, idKey, nameKey, onRe
             return;
         }
 
-        console.log('[RegionMap] MENGGAMBAR PETA...');
-        console.log(`[RegionMap] URL GeoJSON: ${geojsonUrl}`);
-        console.log(`[RegionMap] Kunci ID: ${idKey}, Kunci Nama: ${nameKey}`);
-
-        const width = 800, height = 600;
+        const { width, height } = containerRef.current.getBoundingClientRect();
         const svg = d3.select(svgRef.current).html("").attr('viewBox', `0 0 ${width} ${height}`);
 
         d3.json(geojsonUrl).then(geojson => {
             let features = geojson.features;
 
             if (filterByCode && filterKey) {
-                console.log(`[RegionMap] Memfilter ${features.length} fitur dengan kunci '${filterKey}' === '${filterByCode}'`);
                 if (districtId && districtKey) {
                     features = geojson.features.filter(f => String(f.properties[districtKey]) === String(districtId));
                 }
                 features = features.filter(f => String(f.properties[filterKey]) === String(filterByCode));
-
-                console.log(`[RegionMap] Hasil filter: ${features.length} fitur ditemukan.`);
             }
 
             const filteredGeojson = { type: 'FeatureCollection', features };
@@ -60,7 +54,6 @@ function RegionMap({ className, geojsonUrl, aggregatedData, idKey, nameKey, onRe
                         lookupKey = `${districtId}.${idFromGeoJson}`;
                     }
                     const count = aggregatedData[lookupKey] || 0;
-                    console.log(`[RegionMap] Hasil hitung: ${count} orang. dengan key : ${lookupKey}`);
                     return count === 0 ? '#f0f0f0' : colorScale(count);
                 })
                 .style('cursor', onRegionClick ? 'pointer' : 'default')
@@ -117,8 +110,12 @@ function RegionMap({ className, geojsonUrl, aggregatedData, idKey, nameKey, onRe
     }, [geojsonUrl, aggregatedData, idKey, nameKey, onRegionClick, filterByCode, filterKey]);
     return (
         <TooltipProvider>
-            <div className={cn("border-2 border-foreground shadow-neo p-4 bg-white relative", className)}>
-                <svg ref={svgRef}></svg>
+            <div 
+                ref={containerRef} 
+                className={cn("w-full h-full relative", className)}
+            >
+                <svg ref={svgRef} className="w-full h-full" />
+                
                 <Tooltip open={tooltip.visible}>
                     <TooltipTrigger asChild>
                         <div style={{ position: 'fixed', top: tooltip.y, left: tooltip.x, pointerEvents: 'none' }} />

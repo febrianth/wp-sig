@@ -39,7 +39,7 @@ export const generateColumns = ({ onEdit, onDelete, settings }) => [
             // Tampilan (cell) tetap mengambil data 'badge' dari 'row.original'
             const badge = row.original.badge;
             if (!badge) return null;
-            return <Badge variant={badge.variant}>{badge.text}</Badge>;
+            return <Badge className={badge.classname}>{badge.text}</Badge>;
         }
     },
     {

@@ -1,16 +1,20 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Button } from '../components/ui/button';
 import { Link } from 'react-router-dom';
-import RegionMap from '../components/dashboard/RegionMap';
+
+import { Button } from '../components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../components/ui/alert-dialog";
 import MemberForm from '../components/manage/MemberForm';
 import { PlusCircle } from 'lucide-react';
 import { generateColumns } from "./members/columns";
 import { DataTable } from "../components/custom/DataTable";
 import { useToast } from "../hooks/use-toast";
+
+import RegionMap from '../components/dashboard/RegionMap';
+import DonutChartCard from '../components/dashboard/DonutChartCard';
 
 function SetupCta() {
     return (
@@ -26,19 +30,6 @@ function SetupCta() {
     );
 }
 
-function getBadgeForEventCount(count) {
-    if (count >= 10) {
-        return { text: 'Platinum', variant: 'destructive' }; // 
-    }
-    if (count >= 5) {
-        return { text: 'Gold', variant: 'default' };
-    }
-    if (count >= 1) {
-        return { text: 'Silver', variant: 'secondary' };
-    }
-    return { text: 'New', variant: 'neutral' };
-}
-
 function Dashboard() {
     const [settings, setSettings] = useState(null);
     const [members, setMembers] = useState([]);
@@ -48,6 +39,8 @@ function Dashboard() {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingMember, setEditingMember] = useState(null);
     const [deletingMember, setDeletingMember] = useState(null);
+    const thresholds = settings?.badge_thresholds || { gold: 3, silver: 2, bronze: 1 };
+
     const { toast } = useToast();
 
     // Fungsi untuk mengambil data (sekarang hanya sekali)
@@ -72,6 +65,38 @@ function Dashboard() {
     useEffect(() => {
         fetchData();
     }, [fetchData]);
+
+    function getBadgeForEventCount(count) {
+        let badgedata;
+
+        // Use switch (true) for sequential conditional checking (ranges)
+        switch (true) {
+            case (typeof count === 'undefined' || count === null || count === 0):
+                // The original logic checked for `!count`, which is true for
+                // undefined, null, 0, and false. Assuming you meant for new/no events.
+                badgedata = { text: 'New', classname: 'bg-white' };
+                break;
+
+            case (count >= thresholds.gold):
+                badgedata = { text: 'Gold', classname: 'bg-amber-400' };
+                break;
+
+            case (count >= thresholds.silver):
+                badgedata = { text: 'Silver', classname: 'bg-gray-300' };
+                break;
+
+            case (count >= thresholds.bronze):
+                badgedata = { text: 'Bronze', classname: 'bg-amber-700' };
+                break;
+
+            default:
+                // Fallback for counts that don't meet any criteria (e.g., negative numbers)
+                badgedata = null;
+                break;
+        }
+
+        return badgedata;
+    }
 
     const filteredMembers = useMemo(() => {
         const rankedMembers = members.map(member => ({
@@ -244,16 +269,46 @@ function Dashboard() {
 
     return (
         <div className="space-y-8">
-            <div>
-                <div className="flex items-center justify-between mb-4">
-                    <h1 className="text-3xl font-bold">{pageTitle}</h1>
-                    {view.level !== 'regency' && (
-                        <Button onClick={handleGoBack} variant="outline">
-                            <ArrowLeft className="mr-2 h-4 w-4" /> Kembali ke Peta Kecamatan
-                        </Button>
-                    )}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+                {/* Bagian Maps */}
+                <div className='lg:col-span-2'>
+                    <Card className="h-[700px] flex flex-col">
+                        <CardHeader>
+                            <CardTitle>{pageTitle}</CardTitle>
+                            <CardDescription>
+                                <div className="flex justify-between items-center">
+                                    <div>
+                                        {view.code ? `Total ${filteredMembers.length} member.` : `Total ${members.length} member.`}
+                                    </div>
+                                    <div>
+                                        {view.level !== 'regency' && (
+                                            <Button onClick={handleGoBack} variant="outline">
+                                                <ArrowLeft className="mr-2 h-4 w-4" />
+                                                {view.level === 'district' ? `Kembali ke Peta Kabupaten` : `Kembali ke Peta Kecamatan`}
+                                            </Button>
+                                        )}
+                                    </div>
+                                </div>
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="flex-grow relative">
+                            <RegionMap
+                                {...mapProps}
+                                aggregatedData={aggregatedData}
+                                className="h-[550px]"
+                            />
+                        </CardContent>
+                    </Card>
                 </div>
-                <RegionMap {...mapProps} aggregatedData={aggregatedData} />
+
+                {/* Bagian Donut Chart */}
+                <div className='lg:col-span-1'>
+                    <DonutChartCard
+                        filteredMembers={filteredMembers} // Kirim member yang sudah diproses
+                        events={events}
+                        className="h-[700px]"
+                    />
+                </div>
             </div>
 
             {/* Bagian Daftar Member */}
@@ -284,7 +339,7 @@ function Dashboard() {
                     {settings && (
                         <MemberForm
                             settings={settings}
-                            allEvents={events} // <-- Teruskan daftar event ke form
+                            allEvents={events}
                             initialData={editingMember}
                             onSave={handleSave}
                             onCancel={() => setIsDialogOpen(false)}

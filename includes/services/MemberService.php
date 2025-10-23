@@ -37,7 +37,7 @@ class MemberService
             GROUP BY 
                 m.id
             ORDER BY 
-                m.id DESC
+                event_count DESC
         ";
 
         $results = $this->wpdb->get_results($sql, ARRAY_A);

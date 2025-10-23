@@ -7,17 +7,18 @@ import { Label } from "../../components/ui/label";
 import { useToast } from "../../hooks/use-toast";
 import { KeyRound, RefreshCw, Eye, EyeOff } from 'lucide-react';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
 } from "../../components/ui/alert-dialog";
 import { cn } from '../../lib/utils';
+import { Badge } from "../../components/ui/badge";
 
 function MapUploader({ title, description, fileType, currentUrl, onFileUpload }) {
     const [isUploading, setIsUploading] = useState(false);
@@ -102,19 +103,19 @@ function ApiKeyCard({ apiKey, onRegenerate, isGenerating }) {
                     <Label htmlFor="api_key">API Key Anda (Rahasia)</Label>
                     {/* 3. Gunakan div 'relative' untuk menempatkan ikon di dalam input */}
                     <div className="relative">
-                        <Input 
-                            id="api_key" 
+                        <Input
+                            id="api_key"
                             // 4. Ganti 'type' secara dinamis
-                            type={isKeyVisible ? "text" : "password"} 
-                            value={apiKey || 'Membuat key...'} 
-                            readOnly 
+                            type={isKeyVisible ? "text" : "password"}
+                            value={apiKey || 'Membuat key...'}
+                            readOnly
                             className="font-mono pr-10" // Beri ruang di kanan untuk ikon
                         />
                         {/* 5. Buat tombol untuk toggle ikon */}
-                        <Button 
+                        <Button
                             type="button" // Pastikan 'type' adalah 'button'
-                            variant="ghost" 
-                            size="sm" 
+                            variant="ghost"
+                            size="sm"
                             className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                             onClick={toggleVisibility}
                         >
@@ -131,8 +132,8 @@ function ApiKeyCard({ apiKey, onRegenerate, isGenerating }) {
                 <AlertDialog>
                     <AlertDialogTrigger asChild>
                         {/* Tombol ini sekarang hanya akan MEMBUKA dialog */}
-                        <Button 
-                            variant="outline" 
+                        <Button
+                            variant="outline"
                             disabled={isGenerating}
                         >
                             <RefreshCw className={cn("mr-2 h-4 w-4", isGenerating && "animate-spin")} />
@@ -143,7 +144,7 @@ function ApiKeyCard({ apiKey, onRegenerate, isGenerating }) {
                         <AlertDialogHeader>
                             <AlertDialogTitle>Anda Yakin?</AlertDialogTitle>
                             <AlertDialogDescription>
-                                Tindakan ini akan membuat API key baru dan membatalkan key yang lama. 
+                                Tindakan ini akan membuat API key baru dan membatalkan key yang lama.
                                 Anda harus memperbarui key ini di Google Apps Script Anda agar tetap berfungsi.
                             </AlertDialogDescription>
                         </AlertDialogHeader>
@@ -174,6 +175,9 @@ function GeneralSettings() {
             village_id: '',
             village_name: '',
             village_parent_district_id: ''
+        },
+        badge_thresholds: {
+            gold: 3, silver: 2, bronze: 1
         }
     });
 
@@ -212,7 +216,7 @@ function GeneralSettings() {
             });
             const result = await response.json();
             if (!response.ok) throw new Error(result.error || 'Gagal membuat key.');
-            
+
             // Update state settings lokal dengan key baru
             setSettings(prev => ({ ...prev, api_key: result.api_key }));
             toast({ title: "Sukses!", description: "API Key baru telah dibuat." });
@@ -246,7 +250,8 @@ function GeneralSettings() {
                 headers: { 'X-WP-Nonce': sig_plugin_data.nonce, 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     map_files: settings.map_files,
-                    map_keys: settings.map_keys
+                    map_keys: settings.map_keys,
+                    badge_thresholds: settings.badge_thresholds,
                 }),
             });
             const result = await response.json();
@@ -274,9 +279,9 @@ function GeneralSettings() {
 
     return (
         <div>
-            <div className="flex justify-between items-start mb-6">
+            <div className="flex items-center justify-between mb-4">
                 <div>
-                    <h1 className="text-3xl font-bold">Pengaturan Peta & Data</h1>
+                    <h1 className="text-3xl font-bold">Pengaturan Umum</h1>
                     <p className="text-muted-foreground">Konfigurasi sumber data peta dan pemetaan properti GeoJSON.</p>
                 </div>
                 <Button onClick={handleSaveSettings} disabled={isSaving}>
@@ -348,13 +353,57 @@ function GeneralSettings() {
                 </div>
 
                 <div className="space-y-6">
-                    {/* Kolom Kanan: Key Mappings */}
-
-                    <ApiKeyCard 
+                    <ApiKeyCard
                         apiKey={settings?.api_key}
                         isGenerating={isGenerating}
                         onRegenerate={handleRegenerateKey}
                     />
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Pengaturan Peringkat (Badge)</CardTitle>
+                            <CardDescription>
+                                Atur jumlah minimum event yang dihadiri untuk setiap peringkat.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="flex items-center justify-between space-x-4">
+                                <Label htmlFor="badge_gold" className="flex-shrink-0">
+                                    <Badge className="bg-amber-400">Gold</Badge>
+                                </Label>
+                                <Input
+                                    id="gold"
+                                    type="number"
+                                    className="max-w-[100px]"
+                                    value={settings.badge_thresholds.gold}
+                                    onChange={(e) => handleStateChange('badge_thresholds', 'gold', parseInt(e.target.value) || 0)}
+                                />
+                            </div>
+                            <div className="flex items-center justify-between space-x-4">
+                                <Label htmlFor="badge_silver" className="flex-shrink-0">
+                                    <Badge className="bg-gray-300">Silver</Badge>
+                                </Label>
+                                <Input
+                                    id="silver"
+                                    type="number"
+                                    className="max-w-[100px]"
+                                    value={settings.badge_thresholds.silver}
+                                    onChange={(e) => handleStateChange('badge_thresholds', 'silver', parseInt(e.target.value) || 0)}
+                                />
+                            </div>
+                            <div className="flex items-center justify-between space-x-4">
+                                <Label htmlFor="badge_bronze" className="flex-shrink-0">
+                                    <Badge className="bg-amber-700">Bronze</Badge>
+                                </Label>
+                                <Input
+                                    id="bronze"
+                                    type="number"
+                                    className="max-w-[100px]"
+                                    value={settings.badge_thresholds.bronze}
+                                    onChange={(e) => handleStateChange('badge_thresholds', 'bronze', parseInt(e.target.value) || 0)}
+                                />
+                            </div>
+                        </CardContent>
+                    </Card>
                 </div>
             </div>
         </div>

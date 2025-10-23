@@ -5,11 +5,11 @@ import { Label } from "../../components/ui/label";
 import { cn } from "../../lib/utils";
 import { Textarea } from "../ui/textarea";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from '../../components/ui/select'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "../../components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "../../components/ui/popover";
@@ -64,18 +64,18 @@ function MultiSelectCombobox({ options, selected, onChange, placeholder }) {
 }
 
 function MemberForm({ initialData, settings, onSave, onCancel, allEvents }) {
-	const [formData, setFormData] = useState(initialData || {
-		name: "",
-		full_address: "",
-		phone_number: "",
-		district_id: "",
-		village_id: "",
-		event_ids: []
-	});
+    const [formData, setFormData] = useState(initialData || {
+        name: "",
+        full_address: "",
+        phone_number: "",
+        district_id: "",
+        village_id: "",
+        event_ids: []
+    });
 
-	const handleChange = (e) => {
+    const handleChange = (e) => {
         const { id, value } = e.target;
-        
+
         if (id === 'phone_number') {
             const sanitizedValue = value.replace(/[^0-9+]/g, '');
             setFormData(prev => ({ ...prev, [id]: sanitizedValue }));
@@ -84,7 +84,7 @@ function MemberForm({ initialData, settings, onSave, onCancel, allEvents }) {
         }
     };
 
-	const handleSelectChange = (id, value) => {
+    const handleSelectChange = (id, value) => {
         if (id === "district_id") {
             // Jika kecamatan berubah, reset pilihan desa
             setFormData(prev => ({ ...prev, district_id: value, village_id: "" }));
@@ -93,68 +93,67 @@ function MemberForm({ initialData, settings, onSave, onCancel, allEvents }) {
         }
     };
 
-	const handleEventsChange = (eventIds) => {
+    const handleEventsChange = (eventIds) => {
         setFormData(prev => ({ ...prev, event_ids: eventIds }));
     };
 
-	const eventOptions = allEvents.map(event => ({ value: event.id, label: event.event_name }));
+    const eventOptions = Object.values(allEvents).map(event => ({ value: event.id, label: event.event_name }));
+    // Siapkan data untuk options dari "kamus data" di settings
+    const districts = settings?.map_data?.districts
+        ? Object.entries(settings.map_data.districts).map(([id, name]) => ({
+            value: id,
+            label: name,
+        }))
+        : [];
 
-	// Siapkan data untuk options dari "kamus data" di settings
-	const districts = settings?.map_data?.districts
-		? Object.entries(settings.map_data.districts).map(([id, name]) => ({
-			value: id,
-			label: name,
-		}))
-		: [];
+    const villages = settings?.map_data?.villages
+        ? Object.entries(settings.map_data.villages).map(([id, villageObj]) => ({
+            value: id,
+            label: villageObj.name,
+            districtId: villageObj.parent_district,
+        }))
+        : [];
 
-	const villages = settings?.map_data?.villages
-		? Object.entries(settings.map_data.villages).map(([id, villageObj]) => ({
-			value: id,
-			label: villageObj.name,
-			districtId: villageObj.parent_district,
-		}))
-		: [];
+    // Filter desa berdasarkan ID kecamatan yang DIPILIH di form
+    const filteredVillages = formData.district_id
+        ? villages.filter((v) => v.districtId === formData.district_id)
+        : [];
 
-	// Filter desa berdasarkan ID kecamatan yang DIPILIH di form
-	const filteredVillages = formData.district_id
-		? villages.filter((v) => v.districtId === formData.district_id)
-		: [];
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        onSave(formData);
+    };
 
-	const handleSubmit = (e) => {
-		e.preventDefault();
-		onSave(formData);
-	};
-
-	return (
-		<form onSubmit={handleSubmit} className="space-y-4">
-			<div className="space-y-1">
-				<Label htmlFor="name">Nama Lengkap</Label>
-				<Input
-					id="name"
-					value={formData.name || ""}
-					onChange={handleChange}
-					required
-				/>
-			</div>
-			<div className="space-y-1">
-				<Label htmlFor="phone_number">Nomor Telepon</Label>
-				<Input
-					id="phone_number"
-					type="tel"
-					value={formData.phone_number || ''}
-					placeholder="ex : +628123456789"
-					onChange={handleChange}
-				/>
-			</div>
-			<div className="space-y-1">
-				<Label htmlFor="full_address">Alamat Lengkap</Label>
-				<Textarea
-					id="full_address"
-					value={formData.full_address || ''}
-					onChange={handleChange}
-				/>
-			</div>
-			<div className="space-y-1">
+    return (
+        <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-1">
+                <Label htmlFor="name">Nama Lengkap</Label>
+                <Input
+                    id="name"
+                    value={formData.name || ""}
+                    onChange={handleChange}
+                    required
+                />
+            </div>
+            <div className="space-y-1">
+                <Label htmlFor="phone_number">Nomor Telepon</Label>
+                <Input
+                    id="phone_number"
+                    type="tel"
+                    value={formData.phone_number || ''}
+                    placeholder="ex : +628123456789"
+                    onChange={handleChange}
+                />
+            </div>
+            <div className="space-y-1">
+                <Label htmlFor="full_address">Alamat Lengkap</Label>
+                <Textarea
+                    id="full_address"
+                    value={formData.full_address || ''}
+                    onChange={handleChange}
+                />
+            </div>
+            <div className="space-y-1">
                 <Label htmlFor="district_id">Kecamatan</Label>
                 <Select
                     value={formData.district_id}
@@ -191,7 +190,7 @@ function MemberForm({ initialData, settings, onSave, onCancel, allEvents }) {
                     </SelectContent>
                 </Select>
             </div>
-			<div className="space-y-1">
+            <div className="space-y-1">
                 <Label>Event yang Diikuti</Label>
                 <MultiSelectCombobox
                     options={eventOptions}
@@ -201,14 +200,14 @@ function MemberForm({ initialData, settings, onSave, onCancel, allEvents }) {
                 />
             </div>
 
-			<div className="flex justify-end space-x-2 pt-4">
-				<Button type="button" variant="ghost" onClick={onCancel}>
-					Batal
-				</Button>
-				<Button type="submit">Simpan</Button>
-			</div>
-		</form>
-	);
+            <div className="flex justify-end space-x-2 pt-4">
+                <Button type="button" variant="ghost" onClick={onCancel}>
+                    Batal
+                </Button>
+                <Button type="submit">Simpan</Button>
+            </div>
+        </form>
+    );
 }
 
 export default MemberForm;

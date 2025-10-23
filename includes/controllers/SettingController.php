@@ -111,12 +111,13 @@ class SettingsApiController
         $params = $request->get_json_params();
         $file_urls = $params['map_files'] ?? [];
         $key_mappings = $params['map_keys'] ?? [];
+        $badge_thresholds = $params['badge_thresholds'] ?? [];
 
         if (empty($file_urls['districts']) || empty($file_urls['villages'])) {
             return new WP_REST_Response(['error' => 'URL file Peta Kecamatan dan Desa wajib ada.'], 400);
         }
 
-        $result = $this->settings_service->process_uploaded_maps($file_urls, $key_mappings);
+        $result = $this->settings_service->process_uploaded_maps($file_urls, $key_mappings, $badge_thresholds);
 
         if (is_wp_error($result)) {
             return new WP_REST_Response(['error' => $result->get_error_message()], 400);

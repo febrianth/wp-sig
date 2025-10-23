@@ -532,14 +532,18 @@ function EventPage() {
 
                     {/* Kolom Kanan: status event */}
                     {!activeEvent ? (
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center text-destructive">
-                                    <XCircle className="mr-2 h-5 w-5" /> API Pendaftaran Ditutup
-                                </CardTitle>
-                                <CardDescription>Tidak ada event yang sedang dibuka untuk pendaftaran GForm. API tidak akan menerima data masuk.</CardDescription>
-                            </CardHeader>
-                        </Card>
+                        <>
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center text-destructive">
+                                        <XCircle className="mr-2 h-5 w-5" /> API Pendaftaran Ditutup
+                                    </CardTitle>
+                                    <CardDescription>Tidak ada event yang sedang dibuka untuk pendaftaran GForm. API tidak akan menerima data masuk.</CardDescription>
+                                </CardHeader>
+                            </Card>
+                            {/* Tampilkan Kartu Histori */}
+                            <EventHistoryCard history={history} />
+                        </>
                     ) : (
                         <Card>
                             <CardHeader>
@@ -590,8 +594,8 @@ function EventPage() {
                                                             {getRegionName(member.district_id, member.village_id)}
                                                         </TableCell>
                                                         <TableCell>
-                                                            {member.status === 'pending' && <Badge variant="outline">Pending</Badge>}
-                                                            {member.status === 'rejected' && <Badge variant="destructive">Ditolak</Badge>}
+                                                            {member.status === 'pending' && <Badge className="bg-yellow-200">Pending</Badge>}
+                                                            {member.status === 'rejected' && <Badge className="bg-red-200">Ditolak</Badge>}
                                                         </TableCell>
                                                         <TableCell className="text-right">
                                                             {member.status === 'pending' ? (
@@ -635,7 +639,6 @@ function EventPage() {
                 <div className="space-y-6">
                     {/* Kolom Kanan: Dokumentasi */}
                     <ApiDocumentation settings={settings} />
-                    <EventHistoryCard history={history} /> {/* Tampilkan Kartu Histori */}
                 </div>
             </div>
         </div>

@@ -5,8 +5,6 @@ CREATE TABLE `%%PREFIX%%sig_members` (
     `phone_number` VARCHAR(20) NULL,
     `district_id` VARCHAR(10) NULL,
     `village_id` VARCHAR(20) NULL,
-    `latitude` DECIMAL(10, 8) NULL,
-    `longitude` DECIMAL(11, 8) NULL,
     `created_at` DATETIME NULL DEFAULT CURRENT_TIMESTAMP,
     `updated_at` DATETIME NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     `deleted_at` DATETIME NULL DEFAULT NULL,
