@@ -131,7 +131,6 @@ function Dashboard() {
     }, [members, settings, view.level]);
 
     const handleRegionClick = (clickedCode) => {
-        console.log(`[Dashboard] Wilayah diklik. Level saat ini: ${view.level}, Kode diklik: ${clickedCode}`);
         if (view.level === 'regency') {
             setView({ level: 'district', code: clickedCode, parentCode: null });
         }
