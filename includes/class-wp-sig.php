@@ -128,37 +128,37 @@ class Wp_Sig
 		 * The class responsible for defining the controller Members
 		 * side of the site.
 		 */
-		require_once plugin_dir_path(dirname(__FILE__)) . 'includes/controllers/MemberController.php';
+		require_once plugin_dir_path(dirname(__FILE__)) . 'includes/controllers/member-controller.php';
 
 		/**
 		 * The class responsible for defining the controller Settings
 		 * side of the site.
 		 */
-		require_once plugin_dir_path(dirname(__FILE__)) . 'includes/controllers/SettingController.php';
+		require_once plugin_dir_path(dirname(__FILE__)) . 'includes/controllers/setting-controller.php';
 
 		/**
 		 * The class responsible for defining the controller import excel
 		 * side of the site.
 		 */
-		require_once plugin_dir_path(dirname(__FILE__)) . 'includes/controllers/ImportController.php';
+		require_once plugin_dir_path(dirname(__FILE__)) . 'includes/controllers/import-controller.php';
 
 		/**
 		 * The class responsible for defining the controller event
 		 * side of the site.
 		 */
-		require_once plugin_dir_path(dirname(__FILE__)) . 'includes/controllers/EventController.php';
+		require_once plugin_dir_path(dirname(__FILE__)) . 'includes/controllers/event-controller.php';
 
 		/**
 		 * The class responsible for defining the controller event schedule API
 		 * side of the site.
 		 */
-		require_once plugin_dir_path(dirname(__FILE__)) . 'includes/controllers/EventScheduleApiController.php';
+		require_once plugin_dir_path(dirname(__FILE__)) . 'includes/controllers/event-schedule-api-controller.php';
 		
 		/**
 		 * The class responsible for defining the controller event form API
 		 * side of the site.
 		 */
-		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/controllers/formApiController.php';
+		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/controllers/form-api-controller.php';
 
 		$this->loader = new Wp_Sig_Loader();
 	}

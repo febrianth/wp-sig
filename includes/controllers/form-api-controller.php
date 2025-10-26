@@ -1,6 +1,6 @@
 <?php
-require_once WP_SIG_PLUGIN_PATH . 'includes/services/MemberService.php';
-require_once WP_SIG_PLUGIN_PATH . 'includes/services/EventService.php';
+require_once WP_SIG_PLUGIN_PATH . 'includes/services/member-service.php';
+require_once WP_SIG_PLUGIN_PATH . 'includes/services/event-service.php';
 
 class formApiController
 {

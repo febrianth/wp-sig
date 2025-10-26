@@ -1,5 +1,5 @@
 <?php
-require_once WP_SIG_PLUGIN_PATH . 'includes/services/MemberService.php';
+require_once WP_SIG_PLUGIN_PATH . 'includes/services/member-service.php';
 
 class MemberApiController {
 

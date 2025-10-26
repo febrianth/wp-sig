@@ -32,7 +32,7 @@ function HeroSection() {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-4">
-            <Button size="lg">Docs</Button>
+            <Button size="lg">Mulai</Button>
             <Button size="lg" variant="secondary">
               Cara Kerja <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
@@ -44,7 +44,7 @@ function HeroSection() {
           <div className="bg-white border-2 border-foreground  p-2">
              <img 
                src="https://placehold.co/600x500/dfe5f2/000000?text=WP-SIG+Dashboard" 
-               alt="WP-SIG Dashboard" 
+               alt="WP-SIG logo" 
                className="w-full h-auto"
              />
           </div>

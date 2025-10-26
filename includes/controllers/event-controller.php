@@ -1,6 +1,6 @@
 <?php
 // Make sure the path to your service file is correct
-require_once WP_SIG_PLUGIN_PATH . 'includes/services/EventService.php';
+require_once WP_SIG_PLUGIN_PATH . 'includes/services/event-service.php';
 
 /**
  * Handles all REST API endpoints related to Events.

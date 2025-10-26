@@ -1,5 +1,5 @@
 <?php
-require_once WP_SIG_PLUGIN_PATH . 'includes/services/SettingService.php';
+require_once WP_SIG_PLUGIN_PATH . 'includes/services/setting-service.php';
 
 /**
  * Handles all REST API endpoints related to settings.

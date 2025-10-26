@@ -1,7 +1,7 @@
 <?php
-require_once WP_SIG_PLUGIN_PATH . 'includes/services/ImportService.php';
+require_once WP_SIG_PLUGIN_PATH . 'includes/services/import-service.php';
 
-class ImportApiController
+class ImportApiController 
 {
 
     private $import_service;

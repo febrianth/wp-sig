@@ -1,6 +1,6 @@
 <?php
 // Pastikan path ke service Anda benar
-require_once WP_SIG_PLUGIN_PATH . 'includes/services/EventService.php';
+require_once WP_SIG_PLUGIN_PATH . 'includes/services/event-service.php';
 
 class EventScheduleApiController {
 

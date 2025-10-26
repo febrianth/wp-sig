@@ -76,6 +76,9 @@ function sig_plugin_activate() {
     error_log( '--- SIG Plugin Activation Process Finished ---' );
 }
 
+// Muat autoloader Composer (bug release v.1)
+require_once plugin_dir_path( __FILE__ ) . 'vendor/autoload.php';
+
 register_activation_hook( __FILE__, 'sig_plugin_activate' );
 
 /**
@@ -98,7 +101,6 @@ function deactivate_wp_sig() {
 
 register_activation_hook( __FILE__, 'activate_wp_sig' );
 register_deactivation_hook( __FILE__, 'deactivate_wp_sig' );
-
 
 /**
  * The core plugin class that is used to define internationalization,
