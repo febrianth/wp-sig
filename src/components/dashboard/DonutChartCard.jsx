@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
-import { Button } from '../../components/ui/button';
-import DonutChart from "../../components/dashboard/DonutChart"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from '@/components/ui/button';
+import DonutChart from "@/components/dashboard/DonutChart"
 import * as d3 from 'd3';
-import { cn } from '../../lib/utils';
+import { cn } from '@/lib/utils';
 
 function DonutChartCard({ filteredMembers, events, className }) {
     const [chartType, setChartType] = useState('events');
@@ -66,7 +66,7 @@ function DonutChartCard({ filteredMembers, events, className }) {
     return (
         <Card className={cn("flex flex-col", className)}>
             <CardHeader>
-                <CardTitle>Analisis Member</CardTitle>
+                <CardTitle>Analisis Peserta</CardTitle>
                 <CardDescription>
                     Agregasi data berdasarkan {chartType === 'events' ? 'Top 5 Event (+ Event Lain)' : 'Peringkat'}.
                 </CardDescription>

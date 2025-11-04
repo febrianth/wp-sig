@@ -5,9 +5,11 @@ require_once WP_SIG_PLUGIN_PATH . 'includes/services/event-service.php';
 class EventScheduleApiController {
 
     private $event_service;
+    private $member_service;
 
     public function __construct() {
         $this->event_service = new EventService();
+        $this->member_service = new MemberService();
     }
 
     public function register_routes() {
@@ -44,6 +46,12 @@ class EventScheduleApiController {
             'callback'            => [$this, 'handle_member_status_update'],
             'permission_callback' => [$this, 'admin_permissions_check'],
         ]);
+
+        register_rest_route('sig/v1', '/check-in', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'handle_check_in'],
+            'permission_callback' => [$this, 'permissions_check'],
+        ]);
     }
 
     public function handle_member_status_update(WP_REST_Request $request) {
@@ -64,6 +72,29 @@ class EventScheduleApiController {
         // Kembalikan data event terbaru agar UI bisa sinkron
         $new_data = $this->event_service->get_active_api_form_details();
         return new WP_REST_Response($new_data, 200);
+    }
+
+    public function handle_check_in(WP_REST_Request $request) {
+        $params = $request->get_json_params();
+        $member_id = $params['member_id'] ?? null;
+        $event_id = $params['event_id'] ?? null;
+
+        if (!$member_id || !$event_id) {
+            return new WP_Error('missing_params', 'Member ID atau Event ID tidak ada.', ['status' => 400]);
+        }
+
+        // Panggil service untuk mencatat kehadiran
+        $result = $this->member_service->add_event_to_member($member_id, $event_id, 'verified');
+        
+        if (is_wp_error($result)) {
+            return $result;
+        }
+
+        // Ambil data member yang baru di-check-in untuk notifikasi
+        $member_data = $this->member_service->get_by_id($member_id); // Asumsi Anda punya method ini
+        $member_name = $member_data ? $member_data->name : 'Member';
+
+        return new WP_REST_Response(['message' => "Check-in sukses: $member_name"], 200);
     }
 
     public function get_active_event_details(WP_REST_Request $request) {

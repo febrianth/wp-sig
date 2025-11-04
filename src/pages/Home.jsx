@@ -1,6 +1,6 @@
 
-import HeroSection from '../components/home/HeroSection';
-import FeaturesGrid from '../components/home/Features';
+import HeroSection from '@/components/home/HeroSection';
+import FeaturesGrid from '@/components/home/Features';
 
 function Home() {
   return (

@@ -25,19 +25,15 @@ class MemberService
                 m.*, 
                 COUNT(DISTINCT me.id) as event_count,
                 GROUP_CONCAT(DISTINCT me.event_id SEPARATOR ',') as event_ids
-            FROM 
-                {$this->table_members} AS m
-            INNER JOIN 
-                {$this->table_member_events} AS me 
-                    ON m.id = me.member_id 
-                   AND me.status = 'verified'
-                   AND me.deleted_at IS NULL
-            WHERE 
-                m.deleted_at IS NULL
-            GROUP BY 
-                m.id
-            ORDER BY 
-                event_count DESC
+            FROM {$this->table_members} AS m
+            LEFT JOIN {$this->table_member_events} AS me 
+                   ON m.id = me.member_id 
+                  AND me.status = 'verified'
+                  AND me.deleted_at IS NULL
+            WHERE m.deleted_at IS NULL
+              AND m.status = 'verified'
+            GROUP BY m.id
+            ORDER BY event_count DESC
         ";
 
         $results = $this->wpdb->get_results($sql, ARRAY_A);
@@ -60,20 +56,40 @@ class MemberService
         $name = sanitize_text_field($name);
         $phone_number = sanitize_text_field($phone_number);
 
-        $existing_id = $this->wpdb->get_var($this->wpdb->prepare(
-            "SELECT id FROM {$this->table_members} WHERE name = %s AND phone_number = %s AND deleted_at IS NULL",
-            $name,
-            $phone_number
-        ));
+        $existing_id = $this->get_by_phone_number($phone_number)['id'] ?? null;
 
         if ($existing_id) {
             return (int) $existing_id;
         }
 
         $data_to_insert = array_merge(['name' => $name, 'phone_number' => $phone_number], $additional_data);
-        $success = $this->wpdb->insert($this->table_members, $data_to_insert);
+        $success = $this->create($data_to_insert);
 
         return $success ? $this->wpdb->insert_id : false;
+    }
+
+    public function get_by_phone_number($phone_number)
+    {
+        $phone_number = sanitize_text_field($phone_number);
+
+        $result = $this->wpdb->get_row($this->wpdb->prepare(
+            "SELECT * FROM {$this->table_members} WHERE phone_number = %s AND deleted_at IS NULL",
+            $phone_number
+        ), ARRAY_A);
+
+        return $result ?: null;
+    }
+
+    public function get_by_id($id)
+    {
+        $id = sanitize_text_field($id);
+
+        $result = $this->wpdb->get_row($this->wpdb->prepare(
+            "SELECT * FROM {$this->table_members} WHERE id = %d AND deleted_at IS NULL",
+            $id
+        ), ARRAY_A);
+
+        return $result ?: null;
     }
 
     /**
@@ -81,52 +97,72 @@ class MemberService
      */
     public function add_event_to_member($member_id, $event_id, $status = 'verified')
     {
-        $table = $this->wpdb->prefix . 'sig_member_events';
-
         // Cek agar tidak ada duplikat
-        $exists = $this->wpdb->get_var($this->wpdb->prepare(
-            "SELECT id FROM {$table} WHERE member_id = %d AND event_id = %d",
+        $existing_entry = $this->wpdb->get_var($this->wpdb->prepare(
+            "SELECT id FROM {$this->table_member_events} WHERE member_id = %d AND event_id = %d",
             $member_id,
             $event_id
         ));
 
-        if ($exists) {
-            return true; // Sudah terdaftar
+        if ($existing_entry) {
+            // Jika sudah ada, cukup perbarui statusnya (misal, dari 'pending'/'rejected' menjadi 'verified')
+            $this->wpdb->update(
+                $table,
+                ['status' => $status, 'updated_at' => current_time('mysql', 1)],
+                ['id' => $existing_entry->id]
+            );
+            return $existing_entry->id;
+        } else {
+            // Jika belum ada sama sekali, buat entri baru
+            $this->wpdb->insert($table, [
+                'member_id' => $member_id,
+                'event_id' => $event_id,
+                'status' => $status
+            ]);
+            return $this->wpdb->insert_id;
         }
-
-        return $this->wpdb->insert($table, [
-            'member_id' => $member_id,
-            'event_id' => $event_id,
-            'status' => $status
-        ]);
     }
 
     public function create(array $data)
     {
-        // 1. Pisahkan data member dari data event
-        $event_ids = $data['event_ids'] ?? [];
-        unset($data['event_ids']); // Hapus dari array data member
+        // Sanitasi data
+        $name = sanitize_text_field($data['name']);
+        $phone_number = sanitize_text_field($data['phone_number']);
+        $status = $data['status'] ?? 'pending';
 
-        // 2. Sanitasi data member
+        // Validasi Wajib
+        if (empty($name) || empty($phone_number)) {
+            return new WP_Error(
+                'missing_data',
+                'Nama dan Nomor Telepon wajib diisi.',
+                ['status' => 400]
+            );
+        }
+
+        // Cek Keunikan Nomor Telepon
+        $existing_id = $this->get_by_phone_number($phone_number)['id'] ?? null;
+        if ($existing_id) {
+            return new WP_Error(
+                'duplicate_phone',
+                'Nomor telepon ini sudah terdaftar.',
+                ['status' => 409]
+            ); // 409 Conflict
+        }
+
         $formatted_data = [
-            'name'         => sanitize_text_field($data['name']),
+            'name'         => $name,
+            'phone_number' => $phone_number,
+            'status'       => $status,
             'full_address' => sanitize_textarea_field($data['full_address']),
-            'phone_number' => sanitize_text_field($data['phone_number']),
             'district_id'  => sanitize_text_field($data['district_id']),
             'village_id'   => sanitize_text_field($data['village_id']),
         ];
 
         $success = $this->wpdb->insert($this->table_members, $formatted_data);
         if (!$success) {
-            return new WP_Error('db_insert_error', 'Gagal menyimpan data member.', ['status' => 500]);
+            return new WP_Error('db_insert_error', 'Gagal menyimpan data ke database.', ['status' => 500]);
         }
-
-        $member_id = $this->wpdb->insert_id;
-
-        // 3. Hubungkan event-event
-        $this->sync_events($member_id, $event_ids);
-
-        return $member_id;
+        return $this->wpdb->insert_id;
     }
 
     /**
@@ -149,7 +185,11 @@ class MemberService
 
         $success = $this->wpdb->update($this->table_members, $formatted_data, ['id' => $id]);
         if ($success === false) {
-            return new WP_Error('db_update_error', 'Gagal memperbarui data member.', ['status' => 500]);
+            return new WP_Error(
+                'db_update_error',
+                'Gagal memperbarui data member.',
+                ['status' => 500]
+            );
         }
 
         // 3. Sinkronkan (hapus semua yang lama, tambah semua yang baru)
@@ -203,7 +243,11 @@ class MemberService
 
         // 4. Cek jika salah satu query gagal
         if ($success_member === false || $success_events === false) {
-            return new WP_Error('db_delete_error', 'Gagal menghapus data member atau data event terkait.', ['status' => 500]);
+            return new WP_Error(
+                'db_delete_error',
+                'Gagal menghapus data member atau data event terkait.',
+                ['status' => 500]
+            );
         }
 
         return true;

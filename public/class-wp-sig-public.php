@@ -97,6 +97,63 @@ class Wp_Sig_Public {
 
 		wp_enqueue_script( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'js/wp-sig-public.js', array( 'jquery' ), $this->version, false );
 		wp_enqueue_script('jquery'); 
+
+		global $post;
+        
+        // Cek apakah postingan ada dan memiliki shortcode kita
+        if ( is_a( $post, 'WP_Post' ) && has_shortcode( $post->post_content, 'sig_registration_form' ) ) {
+            
+            // Tentukan path ke file aset yang di-generate oleh Webpack
+            $script_asset_path = WP_SIG_PLUGIN_PATH . 'build/public-form.asset.php';
+
+            if ( ! file_exists( $script_asset_path ) ) {
+                // Beri pesan error jika file build tidak ada
+                wp_die( 'File "public-form.asset.php" tidak ditemukan. Jalankan npm run build.' );
+            }
+
+            $script_asset = require( $script_asset_path );
+
+            wp_enqueue_script(
+                'wp-sig-public-form', // Nama handle unik
+                WP_SIG_PLUGIN_URL . 'build/public-form.js',
+                $script_asset['dependencies'],
+                $script_asset['version'],
+                true // Muat di footer
+            );
+            
+            // Muat file CSS yang di-generate oleh build
+            wp_enqueue_style(
+                'wp-sig-public-form-style',
+                WP_SIG_PLUGIN_URL . 'build/public-form.css',
+                [],
+                $script_asset['version']
+            );
+            
+            // Kirim data dari PHP ke JavaScript
+            wp_localize_script(
+                'wp-sig-public-form',
+                'sig_public_data',
+                [
+                    'api_url' => esc_url_raw( rest_url( 'sig/v1/' ) ),
+                    'nonce'   => wp_create_nonce( 'wp_rest' ), // Nonce untuk keamanan
+                ]
+            );
+        }
 	}
+
+	/**
+     * METHOD BARU: Mendaftarkan shortcode.
+     */
+    public function register_shortcodes() {
+        add_shortcode( 'sig_registration_form', [ $this, 'render_registration_form_shortcode' ] );
+    }
+
+    /**
+     * METHOD BARU: Callback untuk shortcode.
+     * Ini hanya merender div target untuk React.
+     */
+    public function render_registration_form_shortcode() {
+        return '<div id="sig-public-form-root"></div>';
+    }
 
 }

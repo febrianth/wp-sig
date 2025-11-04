@@ -1,9 +1,9 @@
 "use client"
 import React from "react"
 import { flexRender, getCoreRowModel, useReactTable, getFilteredRowModel, getPaginationRowModel, getSortedRowModel } from "@tanstack/react-table"
-import { Input } from "../../components/ui/input"
-import { Button } from "../../components/ui/button"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import {
 	Pagination,
 	PaginationContent,
@@ -11,7 +11,7 @@ import {
 	PaginationLink,
 	PaginationNext,
 	PaginationPrevious,
-} from '../../components/ui/pagination'
+} from '@/components/ui/pagination'
 import { ArrowUpDown, ArrowDown, ArrowUp } from "lucide-react"
 
 export function DataTable({ columns, data }) {

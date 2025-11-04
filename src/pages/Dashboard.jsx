@@ -1,20 +1,20 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 
-import { Button } from '../components/ui/button';
+import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../components/ui/alert-dialog";
-import MemberForm from '../components/manage/MemberForm';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import MemberForm from '@/components/manage/MemberForm';
 import { PlusCircle } from 'lucide-react';
 import { generateColumns } from "./members/columns";
-import { DataTable } from "../components/custom/DataTable";
-import { useToast } from "../hooks/use-toast";
+import { DataTable } from "@/components/custom/DataTable";
+import { useToast } from "@/hooks/use-toast";
 
-import RegionMap from '../components/dashboard/RegionMap';
-import DonutChartCard from '../components/dashboard/DonutChartCard';
+import RegionMap from '@/components/dashboard/RegionMap';
+import DonutChartCard from '@/components/dashboard/DonutChartCard';
 
 function SetupCta() {
     return (
@@ -50,15 +50,17 @@ function Dashboard() {
             const [settingsRes, membersRes, eventsRes] = await Promise.all([
                 fetch(sig_plugin_data.api_url + 'settings', { headers: { 'X-WP-Nonce': sig_plugin_data.nonce } }),
                 fetch(sig_plugin_data.api_url + 'members', { headers: { 'X-WP-Nonce': sig_plugin_data.nonce } }),
-                fetch(sig_plugin_data.api_url + 'events', { headers: { 'X-WP-Nonce': sig_plugin_data.nonce } }) // <-- PANGGILAN API BARU
+                fetch(sig_plugin_data.api_url + 'events', { headers: { 'X-WP-Nonce': sig_plugin_data.nonce } })
             ]);
             const settingsData = await settingsRes.json();
             const membersData = await membersRes.json();
-            const eventsData = await eventsRes.json(); // <-- DAPATKAN DATA EVENT
+            const eventsData = await eventsRes.json(); 
             setSettings(settingsData);
             setMembers(membersData);
-            setEvents(eventsData); // <-- SIMPAN DATA EVENT
-        } catch (error) { console.error("Gagal mengambil data:", error); }
+            setEvents(eventsData); 
+        } catch (error) { 
+            console.error("Gagal mengambil data:", error); 
+        }
         setLoading(false);
     }, []);
 
@@ -314,13 +316,13 @@ function Dashboard() {
             <div>
                 <div className="flex items-center justify-between mb-4">
                     <div>
-                        <h2 className="text-2xl font-bold">Manajemen Member</h2>
+                        <h2 className="text-2xl font-bold">Manajemen Peserta</h2>
                         <p className="text-muted-foreground">
                             {view.code ? `Menampilkan ${filteredMembers.length} member untuk wilayah terpilih.` : `Menampilkan total ${members.length} member.`}
                         </p>
                     </div>
                     <Button onClick={() => { setEditingMember(null); setIsDialogOpen(true); }} disabled={!settings?.map_data}>
-                        <PlusCircle className="mr-2 h-4 w-4" /> Tambah Member
+                        <PlusCircle className="mr-2 h-4 w-4" /> Tambah Peserta
                     </Button>
                 </div>
                 {/* Kirim data yang SUDAH DIFILTER ke DataTable */}
@@ -332,7 +334,7 @@ function Dashboard() {
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>
-                            {editingMember ? "Edit Member" : "Tambah Member Baru"}
+                            {editingMember ? "Edit Peserta" : "Tambah Peserta Baru"}
                         </DialogTitle>
                     </DialogHeader>
                     {settings && (

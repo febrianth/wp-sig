@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
-import { cn } from '../../lib/utils';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../components/ui/tooltip";
+import { cn } from '@/lib/utils';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 function RegionMap({ className, geojsonUrl, aggregatedData, idKey, nameKey, onRegionClick, filterByCode, filterKey, districtId = null, districtKey = null }) {
     const svgRef = useRef(null);

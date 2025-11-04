@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Button } from '../../components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
-import { Input } from '../../components/ui/input';
-import { useToast } from "../../hooks/use-toast";
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { useToast } from "@/hooks/use-toast";
 import { Download, Upload } from 'lucide-react';
 
 function ImportPage() {
@@ -45,7 +45,7 @@ function ImportPage() {
 
     return (
         <div>
-            <h1 className="text-3xl font-bold mb-6">Import Member dari Excel</h1>
+            <h1 className="text-3xl font-bold mb-6">Import Peserta dari Excel</h1>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
                 {/* Kolom Kiri: Instruksi & Upload */}
                 <Card>

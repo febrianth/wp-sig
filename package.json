@@ -1,9 +1,8 @@
 {
   "name": "wp-sig",
   "version": "1.0.0",
-  "type": "module",
   "description": "Wordpress Plugin for SIG (Sistem Informasi Geografis)",
-  "main": "index.js",
+  "main": "index.jsx",
   "scripts": {
     "build": "wp-scripts build",
     "start": "wp-scripts start"
@@ -35,14 +34,17 @@
     "@radix-ui/react-toast": "^1.2.15",
     "@radix-ui/react-tooltip": "^1.2.8",
     "@tanstack/react-table": "^8.21.3",
+    "@yudiel/react-qr-scanner": "^2.4.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.0.0",
     "d3": "^7.9.0",
     "date-fns": "^3.6.0",
     "lucide-react": "^0.544.0",
+    "qrcode.react": "^4.2.0",
     "react-day-picker": "^8.10.1",
     "react-hook-form": "^7.63.0",
+    "react-qrcode-logo": "^4.0.0",
     "react-resizable-panels": "^3.0.6",
     "react-router-dom": "^7.9.1",
     "tailwind-merge": "^3.3.1",

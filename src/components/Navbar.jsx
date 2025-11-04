@@ -1,7 +1,7 @@
 import { Github, Settings, Menu, X } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useState } from "react";
-import { cn } from "../lib/utils";
+import { cn } from "@/lib/utils";
 
 export default function Navbar() {
 	// 3. Buat state untuk mengontrol menu mobile

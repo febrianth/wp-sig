@@ -1,18 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Button } from '../components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
-import { Badge } from '../components/ui/badge';
-import { useToast } from "../hooks/use-toast";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
-import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
-import { Copy, Info, CheckCircle, XCircle, Clock, History, ThumbsDown, RotateCcw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useToast } from "@/hooks/use-toast";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Info, CheckCircle, XCircle, Clock, History, ThumbsDown, RotateCcw, Camera, UserSearch } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "../components/ui/alert-dialog"; // Impor Alert Dialog
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Badge } from '@/components/ui/badge';
+import QrReaderComponent from '@/components/events/QrCodeReader';
 
-// Komponen Countdown Timer
 function CountdownTimer({ startTime, endTime }) {
     const [timeLeft, setTimeLeft] = useState('');
     const [status, setStatus] = useState('pending'); // 'pending', 'active', 'expired'
@@ -67,6 +66,148 @@ function CountdownTimer({ startTime, endTime }) {
     );
 }
 
+function PendingMembersTable({ settings, event, onStatusChange, isUpdatingId }) {
+
+    const getRegionName = (districtId, villageId) => {
+        if (!settings?.map_data) return `...`;
+        const district = settings.map_data.districts?.[districtId] || `[${districtId || 'N/A'}]`;
+        const village = settings.map_data.villages?.[villageId]?.name || `[${villageId || 'N/A'}]`;
+        return `${village}, ${district}`;
+    };
+
+    const pendingMembers = event.pending_members || [];
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Member Menunggu Persetujuan ({pendingMembers.length})</CardTitle>
+                <CardDescription>
+                    Member yang mendaftar via form publik akan muncul di sini. Setujui atau tolak pendaftaran mereka.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="border rounded-md max-h-96 overflow-y-auto">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Nama</TableHead>
+                                <TableHead>Wilayah</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead className="text-right">Aksi</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {pendingMembers.length > 0 ? (
+                                pendingMembers.map((member) => (
+                                    <TableRow key={member.member_event_id}>
+                                        <TableCell>{member.name}</TableCell>
+                                        <TableCell className="text-xs">{getRegionName(member.district_id, member.village_id)}</TableCell>
+                                        <TableCell>
+                                            {member.status === 'pending' && <Badge variant="outline">Pending</Badge>}
+                                            {member.status === 'rejected' && <Badge variant="destructive">Ditolak</Badge>}
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            {member.status === 'pending' ? (
+                                                <Button variant="ghost" size="icon" className="text-destructive h-8 w-8"
+                                                    disabled={isUpdatingId === member.member_event_id}
+                                                    onClick={() => onStatusChange(member.member_event_id, 'rejected')}>
+                                                    <ThumbsDown className="h-4 w-4" />
+                                                </Button>
+                                            ) : (
+                                                <Button variant="ghost" size="icon" className="h-8 w-8"
+                                                    disabled={isUpdatingId === member.member_event_id}
+                                                    onClick={() => onStatusChange(member.member_event_id, 'pending')}>
+                                                    <RotateCcw className="h-4 w-4" />
+                                                </Button>
+                                            )}
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            ) : (
+                                <TableRow>
+                                    <TableCell colSpan={4} className="text-center">Belum ada member yang mendaftar.</TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
+// --- Komponen BARU: Scanner Absensi ---
+function AttendanceScanner({ activeEvent, onScanSuccess }) {
+    const { toast } = useToast();
+
+    const handleScan = (result) => {
+        if (result) {
+            try {
+                // Library ini otomatis mem-parse, tapi kita pastikan lagi
+                const data = (typeof result.data === 'string') ? JSON.parse(result.data) : result.data;
+
+                if (data.id) {
+                    onScanSuccess(data.id, activeEvent.id);
+                } else {
+                    toast({ variant: "destructive", title: "QR Code Tidak Valid" });
+                }
+            } catch (e) {
+                toast({ variant: "destructive", title: "Error Membaca QR" });
+            }
+        }
+    };
+
+    const handleError = (err) => {
+        console.error(err);
+        toast({ variant: "destructive", title: "Error Kamera", description: "Tidak dapat mengakses kamera. Pastikan Anda telah memberikan izin." });
+    };
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center"><Camera className="mr-2 h-5 w-5" /> Pindai Absensi (Check-in)</CardTitle>
+                <CardDescription>Pilih event yang aktif, lalu pindai QR Code member untuk mencatat kehadiran.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                {!activeEvent ? (
+                    <Alert variant="destructive">
+                        <XCircle className="h-4 w-4" />
+                        <AlertTitle>Event Ditutup</AlertTitle>
+                        <AlertDescription>Silakan buka atau buat jadwal event baru untuk memulai absensi.</AlertDescription>
+                    </Alert>
+                ) : (
+                    <div className="w-full max-w-sm mx-auto aspect-square overflow-hidden rounded-md border-2 border-foreground shadow-neo">
+                        <QrReaderComponent/>
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    );
+}
+
+// --- Komponen BARU: Tips Penggunaan ---
+function UsageTipsCard() {
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center"><Info className="mr-2 h-5 w-5" /> Tips Penggunaan</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 text-sm text-muted-foreground">
+                <p>
+                    <strong>1. Alur Registrasi:</strong> Buat Halaman WordPress baru dan tambahkan shortcode
+                    <code>[sig_registration_form]</code>. Bagikan link halaman tersebut kepada calon member.
+                </p>
+                <p>
+                    <strong>2. Proses Absensi:</strong> Member yang sudah mendaftar (via form) atau ditambah (via impor/manual) bisa menggunakan QR Code mereka untuk check-in ke event yang sedang Anda buka di halaman ini.
+                </p>
+                <p>
+                    <strong>3. Lupa Barcode:</strong> Jika member lupa QR Code, Anda bisa mencarinya di halaman "Dashboard", klik "Edit" pada member tersebut, dan tunjukkan QR Code dari sana. (Fitur "Cetak" akan dikembangkan).
+                </p>
+            </CardContent>
+        </Card>
+    );
+}
+
 function SettingsCta() {
     return (
         <Card>
@@ -116,220 +257,6 @@ function EventHistoryCard({ history }) {
                         ))}
                     </TableBody>
                 </Table>
-            </CardContent>
-        </Card>
-    );
-}
-
-function ApiDocumentation({ settings }) {
-    const { toast } = useToast();
-    const submitUrl = sig_plugin_data.api_url + 'submit';
-    const dataUrl = sig_plugin_data.api_url + 'wilayah-data';
-    const apiKey = settings?.api_key || 'API_KEY_ANDA';
-
-    // Skrip Google Apps Script yang lengkap
-    const appsScriptCode = `/* * ===================================================================
- * SKRIP GOOGLE APPS SCRIPT UNTUK WP-SIG (COPY-PASTE)
- * ===================================================================
- * 1. Buka Google Form Anda.
- * 2. Klik ikon tiga titik -> Script editor.
- * 3. Hapus semua kode yang ada dan ganti dengan kode di bawah ini.
- * 4. Atur Trigger: Klik ikon Jam -> Add Trigger -> Pilih 'onFormSubmit' -> 
- * Select event source 'From form' -> Select event type 'On form submit'.
- * 5. Simpan dan jalankan otorisasi.
- * ===================================================================
- */
-
-// --- KONFIGURASI ANDA ---
-// Ganti dengan URL dan API Key dari tab "Referensi API" di plugin Anda.
-var API_URL = "${submitUrl}";
-var API_KEY = "${apiKey}";
-var DATA_WILAYAH_URL = "${dataUrl}";
-
-// --- NAMA PERTANYAAN DI GOOGLE FORM ANDA ---
-// Ganti string di bawah ini agar SAMA PERSIS dengan judul pertanyaan di GForm Anda.
-var NAMA_LENGKAP = "Nama Lengkap";
-var NO_TELEPON = "Nomor Telepon";
-var ALAMAT_LENGKAP = "Alamat Lengkap";
-var KECAMATAN = "Kecamatan"; // Ini adalah dropdown kecamatan
-var DESA = "Desa/Kelurahan"; // Ini adalah dropdown desa
-
-/**
- * Fungsi ini berjalan saat form dibuka untuk mengisi dropdown wilayah.
- */
-function onOpen(e) {
-  try {
-    var form = FormApp.getActiveForm();
-    
-    // Ambil data wilayah dari API WordPress Anda
-    var response = UrlFetchApp.fetch(DATA_WILAYAH_URL);
-    var data = JSON.parse(response.getContentText());
-    
-    var districts = data.districts || {};
-    var villages = data.villages || {};
-    
-    // Buat daftar pilihan kecamatan
-    var districtNames = Object.values(districts);
-    
-    // Temukan item pertanyaan "Kecamatan" dan "Desa"
-    var districtItem = getFormItemByName(form, KECAMATAN);
-    var villageItem = getFormItemByName(form, DESA);
-    
-    if (districtItem && districtItem.getType() == FormApp.ItemType.LIST) {
-      districtItem.asListItem().setChoiceValues(districtNames);
-    }
-    
-    // (Jika Anda ingin mengisi pilihan desa secara dinamis, itu jauh lebih kompleks
-    //  dan memerlukan add-on. Untuk saat ini, kita akan fokus pada ID.)
-
-  } catch (error) {
-    Logger.log("Gagal mengisi data wilayah: " + error.toString());
-  }
-}
-
-/**
- * Fungsi ini berjalan saat form disubmit.
- */
-function onFormSubmit(e) {
-  try {
-    var formResponse = e.namedValues;
-    
-    // Ambil data wilayah lagi untuk mencari ID
-    var response = UrlFetchApp.fetch(DATA_WILAYAH_URL);
-    var data = JSON.parse(response.getContentText());
-    
-    var districts = data.districts || {};
-    var villages = data.villages || {};
-
-    // Dapatkan nama kecamatan & desa yang dipilih dari form
-    var selectedDistrictName = formResponse[KECAMATAN] ? formResponse[KECAMATAN][0] : null;
-    var selectedVillageName = formResponse[DESA] ? formResponse[DESA][0] : null;
-
-    // "Cari" ID berdasarkan nama yang dipilih
-    var districtId = findKeyByValue(districts, selectedDistrictName);
-    var villageId = findKeyByValue(villages, selectedVillageName, districtId);
-
-    // Siapkan payload untuk dikirim ke API
-    var payload = {
-      name: formResponse[NAMA_LENGKAP] ? formResponse[NAMA_LENGKAP][0] : null,
-      phone_number: formResponse[NO_TELEPON] ? formResponse[NO_TELEPON][0] : null,
-      full_address: formResponse[ALAMAT_LENGKAP] ? formResponse[ALAMAT_LENGKAP][0] : null,
-      district_id: districtId,
-      village_id: villageId
-    };
-
-    var options = {
-      'method': 'post',
-      'contentType': 'application/json',
-      'headers': { 'X-API-KEY': API_KEY },
-      'payload': JSON.stringify(payload)
-    };
-    
-    // Kirim data ke API WordPress
-    UrlFetchApp.fetch(API_URL, options);
-
-  } catch (error) {
-    Logger.log("Gagal mengirim data: " + error.toString());
-    // (Opsional) Kirim notifikasi error ke admin
-  }
-}
-
-// --- FUNGSI PEMBANTU ---
-function getFormItemByName(form, title) {
-  var items = form.getItems();
-  for (var i = 0; i < items.length; i++) {
-    if (items[i].getTitle() === title) {
-      return items[i];
-    }
-  }
-  return null;
-}
-
-function findKeyByValue(obj, value, parentDistrictId) {
-  if (!value) return null;
-  for (var key in obj) {
-    if (obj.hasOwnProperty(key)) {
-      if (typeof obj[key] === 'object' && obj[key].name === value && obj[key].district_id === parentDistrictId) {
-        return key; // Untuk desa (cek nama dan parent)
-      } else if (obj[key] === value && !parentDistrictId) {
-        return key; // Untuk kecamatan (cek nama saja)
-      }
-    }
-  }
-  return null;
-}
-`;
-
-    const copyToClipboard = (text) => {
-        navigator.clipboard.writeText(text).then(() => {
-            toast({ description: "Tersalin ke clipboard!" });
-        });
-    };
-
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Dokumentasi Integrasi Google Form</CardTitle>
-                <CardDescription>Gunakan info di bawah ini untuk menghubungkan Google Form Anda.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Tabs defaultValue="script">
-                    <TabsList className="grid w-full grid-cols-2">
-                        <TabsTrigger value="script">Setup Cepat (Script)</TabsTrigger>
-                        <TabsTrigger value="api">Referensi API</TabsTrigger>
-                    </TabsList>
-
-                    {/* Tab 1: Skrip Siap Pakai */}
-                    <TabsContent value="script" className="mt-4">
-                        <p className="text-sm text-muted-foreground mb-4">Salin dan tempel seluruh skrip ini ke dalam Google Apps Script Editor di Google Form Anda.</p>
-                        <div className="relative">
-                            <pre className="p-3 bg-muted rounded-md text-xs overflow-x-auto max-h-[400px]">
-                                {appsScriptCode}
-                            </pre>
-                            <Button variant="ghost" size="icon" className="absolute top-2 right-2 h-7 w-7" onClick={() => copyToClipboard(appsScriptCode)}>
-                                <Copy className="h-4 w-4" />
-                            </Button>
-                        </div>
-                    </TabsContent>
-
-                    {/* Tab 2: Referensi Teknis API */}
-                    <TabsContent value="api" className="mt-4 space-y-6">
-                        <div className="space-y-2">
-                            <Label>API Endpoint Submit (POST)</Label>
-                            <div className="flex items-center gap-2">
-                                <Input readOnly value={submitUrl} className="font-mono" />
-                                <Button variant="outline" size="icon" onClick={() => copyToClipboard(submitUrl)}><Copy className="h-4 w-4" /></Button>
-                            </div>
-                        </div>
-                        <div className="space-y-2">
-                            <Label>API Key (Header: X-API-KEY)</Label>
-                            <div className="flex items-center gap-2">
-                                <Input type="password" readOnly value={apiKey} className="font-mono" />
-                                <Button variant="outline" size="icon" onClick={() => copyToClipboard(apiKey)}><Copy className="h-4 w-4" /></Button>
-                            </div>
-                        </div>
-                        <div className="space-y-2">
-                            <Label>API Data Wilayah (GET - Publik)</Label>
-                            <div className="flex items-center gap-2">
-                                <Input readOnly value={dataUrl} className="font-mono" />
-                                <Button variant="outline" size="icon" onClick={() => copyToClipboard(dataUrl)}><Copy className="h-4 w-4" /></Button>
-                            </div>
-                            <p className="text-xs text-muted-foreground">Gunakan endpoint ini untuk mengambil "kamus data" ID kecamatan dan desa.</p>
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Contoh Payload Body (POST /submit)</Label>
-                            <pre className="p-3 bg-muted rounded-md text-xs overflow-x-auto">
-                                {`{
-  "name": "Nama dari Form",
-  "phone_number": "+628123...",
-  "full_address": "Alamat dari Form",
-  "district_id": "07",
-  "village_id": "07.2001"
-}`}
-                            </pre>
-                        </div>
-                    </TabsContent>
-                </Tabs>
             </CardContent>
         </Card>
     );
@@ -410,11 +337,27 @@ function EventPage() {
             if (!response.ok) throw new Error(result.error || `Gagal mengubah status ke ${newStatus}`);
 
             setActiveEvent(result); // Perbarui data event dengan data baru dari server
-            toast({ title: "Status Diperbarui", description: `Member telah ditandai sebagai ${newStatus}.` });
+            toast({ title: "Status Diperbarui", description: `Peserta telah ditandai sebagai ${newStatus}.` });
         } catch (error) {
             toast({ variant: "destructive", title: "Gagal", description: error.message });
         }
         setIsUpdatingStatus(null); // Hentikan loading
+    };
+
+    const handleScanSuccess = async (memberId, eventId) => {
+        try {
+            const response = await fetch(sig_plugin_data.api_url + 'check-in', {
+                method: 'POST',
+                headers: { 'X-WP-Nonce': sig_plugin_data.nonce, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ member_id: memberId, event_id: eventId }),
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || 'Check-in gagal.');
+            
+            toast({ title: "Check-in Berhasil!", description: result.message });
+        } catch (error) {
+            toast({ variant: "destructive", title: "Check-in Gagal", description: error.message });
+        }
     };
 
     // Fungsi untuk menyimpan atau memperpanjang jadwal
@@ -491,7 +434,7 @@ function EventPage() {
     if (!settings?.api_key || !settings?.map_data?.districts) {
         return (
             <div>
-                <h1 className="text-3xl font-bold mb-6">Manajemen Event Pendaftaran GForm</h1>
+                <h1 className="text-3xl font-bold mb-6">Buat dan Jadwalkan Event</h1>
                 <SettingsCta />
             </div>
         );
@@ -499,7 +442,7 @@ function EventPage() {
 
     return (
         <div className="space-y-8">
-            <h1 className="text-3xl font-bold">Manajemen Event Pendaftaran GForm</h1>
+            <h1 className="text-3xl font-bold">Buat dan Jadwalkan Event</h1>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
                 {/* Kolom Kiri: Manajemen */}
@@ -529,8 +472,15 @@ function EventPage() {
                             </Button>
                         </CardContent>
                     </Card>
+                    <AttendanceScanner
+                        activeEvent={activeEvent}
+                        onScanSuccess={handleScanSuccess}
+                    />
+                    <UsageTipsCard />
+                </div>
 
-                    {/* Kolom Kanan: status event */}
+                {/* Kolom Kanan: Status Event Aktif */}
+                <div className="space-y-6">
                     {!activeEvent ? (
                         <>
                             <Card>
@@ -538,107 +488,109 @@ function EventPage() {
                                     <CardTitle className="flex items-center text-destructive">
                                         <XCircle className="mr-2 h-5 w-5" /> API Pendaftaran Ditutup
                                     </CardTitle>
-                                    <CardDescription>Tidak ada event yang sedang dibuka untuk pendaftaran GForm. API tidak akan menerima data masuk.</CardDescription>
+                                    <CardDescription>Tidak ada event yang sedang dibuka untuk pendaftaran . API tidak akan menerima data masuk.</CardDescription>
                                 </CardHeader>
                             </Card>
                             {/* Tampilkan Kartu Histori */}
                             <EventHistoryCard history={history} />
                         </>
                     ) : (
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center">
-                                    <CheckCircle className="mr-2 h-5 w-5" /> API Pendaftaran Aktif
-                                </CardTitle>
-                                <CardDescription>Event <strong>{activeEvent.event_name}</strong> sedang menerima data.</CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <CountdownTimer startTime={formData.started_at} endTime={formData.end_at} />
-                                <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                        <Button disabled={isFinishing}>
-                                            {isFinishing ? 'Memproses...' : 'Selesaikan Event & Setujui Member'}
-                                        </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                            <AlertDialogTitle>Anda Yakin?</AlertDialogTitle>
-                                            <AlertDialogDescription>
-                                                Tindakan ini akan menutup event, menyetujui semua member 'pending', dan API GForm akan berhenti menerima data untuk event ini.
-                                            </AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                            <AlertDialogCancel>Batal</AlertDialogCancel>
-                                            <AlertDialogAction onClick={handleFinishEvent}>Ya, Selesaikan</AlertDialogAction>
-                                        </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                </AlertDialog>
-                                <hr />
-                                <h4 className="font-bold">Member Pending ({activeEvent.pending_members?.length || 0})</h4>
-                                <div className="border rounded-md max-h-60 overflow-y-auto">
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>Nama</TableHead>
-                                                <TableHead>No. Telepon</TableHead>
-                                                <TableHead>Status</TableHead>
-                                                <TableHead className="text-right">Aksi</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {activeEvent.pending_members?.length > 0 ? (
-                                                activeEvent.pending_members.map((member, index) => (
-                                                    <TableRow key={member.member_event_id}>
-                                                        <TableCell>{member.name}</TableCell>
-                                                        <TableCell className="text-xs">
-                                                            {getRegionName(member.district_id, member.village_id)}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            {member.status === 'pending' && <Badge className="bg-yellow-200">Pending</Badge>}
-                                                            {member.status === 'rejected' && <Badge className="bg-red-200">Ditolak</Badge>}
-                                                        </TableCell>
-                                                        <TableCell className="text-right">
-                                                            {member.status === 'pending' ? (
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="text-destructive h-8 w-8"
-                                                                    disabled={isUpdatingStatus === member.member_event_id}
-                                                                    onClick={() => handleMemberStatusChange(member.member_event_id, 'rejected')}
-                                                                >
-                                                                    <ThumbsDown className="h-4 w-4" />
-                                                                </Button>
-                                                            ) : (
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="h-8 w-8"
-                                                                    disabled={isUpdatingStatus === member.member_event_id}
-                                                                    onClick={() => handleMemberStatusChange(member.member_event_id, 'pending')}
-                                                                >
-                                                                    <RotateCcw className="h-4 w-4" />
-                                                                </Button>
-                                                            )}
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ))
-                                            ) : (
+                        <>
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center">
+                                        <CheckCircle className="mr-2 h-5 w-5" /> API Pendaftaran Aktif
+                                    </CardTitle>
+                                    <CardDescription>Event <strong>{activeEvent.event_name}</strong> sedang menerima data.</CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    <CountdownTimer startTime={formData.started_at} endTime={formData.end_at} />
+                                    <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                            <Button disabled={isFinishing}>
+                                                {isFinishing ? 'Memproses...' : 'Selesaikan Event & Setujui Peserta'}
+                                            </Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle>Anda Yakin?</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                    Tindakan ini akan menutup event, menyetujui semua member 'pending', dan API  akan berhenti menerima data untuk event ini.
+                                                </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel>Batal</AlertDialogCancel>
+                                                <AlertDialogAction onClick={handleFinishEvent}>Ya, Selesaikan</AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+                                    <hr />
+                                    <h4 className="font-bold">Peserta Pending ({activeEvent.pending_members?.length || 0})</h4>
+                                    <div className="border rounded-md max-h-60 overflow-y-auto">
+                                        <Table>
+                                            <TableHeader>
                                                 <TableRow>
-                                                    <TableCell colSpan={4} className="text-center">Belum ada member yang mendaftar.</TableCell>
+                                                    <TableHead>Nama</TableHead>
+                                                    <TableHead>No. Telepon</TableHead>
+                                                    <TableHead>Status</TableHead>
+                                                    <TableHead className="text-right">Aksi</TableHead>
                                                 </TableRow>
-                                            )}
-                                        </TableBody>
-                                    </Table>
-                                </div>
-                            </CardContent>
-                        </Card>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {activeEvent.pending_members?.length > 0 ? (
+                                                    activeEvent.pending_members.map((member, index) => (
+                                                        <TableRow key={member.member_event_id}>
+                                                            <TableCell>{member.name}</TableCell>
+                                                            <TableCell className="text-xs">
+                                                                {getRegionName(member.district_id, member.village_id)}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                {member.status === 'pending' && <Badge className="bg-yellow-200">Pending</Badge>}
+                                                                {member.status === 'rejected' && <Badge className="bg-red-200">Ditolak</Badge>}
+                                                            </TableCell>
+                                                            <TableCell className="text-right">
+                                                                {member.status === 'pending' ? (
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        className="text-destructive h-8 w-8"
+                                                                        disabled={isUpdatingStatus === member.member_event_id}
+                                                                        onClick={() => handleMemberStatusChange(member.member_event_id, 'rejected')}
+                                                                    >
+                                                                        <ThumbsDown className="h-4 w-4" />
+                                                                    </Button>
+                                                                ) : (
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        className="h-8 w-8"
+                                                                        disabled={isUpdatingStatus === member.member_event_id}
+                                                                        onClick={() => handleMemberStatusChange(member.member_event_id, 'pending')}
+                                                                    >
+                                                                        <RotateCcw className="h-4 w-4" />
+                                                                    </Button>
+                                                                )}
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ))
+                                                ) : (
+                                                    <TableRow>
+                                                        <TableCell colSpan={4} className="text-center">Belum ada member yang mendaftar.</TableCell>
+                                                    </TableRow>
+                                                )}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                            <PendingMembersTable
+                                settings={settings}
+                                event={activeEvent}
+                                onStatusChange={handleMemberStatusChange}
+                                isUpdatingId={isUpdatingStatus}
+                            />
+                        </>
                     )}
-                </div>
-
-                {/* Kolom Kanan: Status Event Aktif */}
-                <div className="space-y-6">
-                    {/* Kolom Kanan: Dokumentasi */}
-                    <ApiDocumentation settings={settings} />
                 </div>
             </div>
         </div>

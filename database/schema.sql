@@ -1,17 +1,19 @@
 CREATE TABLE `%%PREFIX%%sig_members` (
     `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
     `name` VARCHAR(255) NOT NULL,
-    `full_address` TEXT,
-    `phone_number` VARCHAR(20) NULL,
-    `district_id` VARCHAR(10) NULL,
+    `phone_number` VARCHAR(25) NULL,
+    `full_address` TEXT NULL,
+    `district_id` VARCHAR(20) NULL,
     `village_id` VARCHAR(20) NULL,
+    `status` ENUM('verified', 'pending', 'rejected') NOT NULL DEFAULT 'pending',
     `created_at` DATETIME NULL DEFAULT CURRENT_TIMESTAMP,
     `updated_at` DATETIME NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     `deleted_at` DATETIME NULL DEFAULT NULL,
     PRIMARY KEY (`id`),
+    UNIQUE KEY `phone_number_unique` (`phone_number`),
     INDEX `district_id_index` (`district_id`),
     INDEX `village_id_index` (`village_id`),
-    INDEX `name_phone_index` (`name`, `phone_number`)
+    INDEX `status_index` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `%%PREFIX%%sig_events` (

@@ -162,6 +162,9 @@ class formApiController
         }
 
         // Jika semua berhasil
-        return new WP_REST_Response(['message' => 'Pendaftaran berhasil. Data Anda akan diverifikasi oleh admin.'], 201); // 201 Created
+        return new WP_REST_Response(
+            ['message' => 'Pendaftaran berhasil. Data Anda akan diverifikasi oleh admin.'], 
+            201
+        ); // 201 Created
     }
 }
