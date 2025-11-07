@@ -18,7 +18,7 @@ import DonutChartCard from '@/components/dashboard/DonutChartCard';
 
 function SetupCta() {
     return (
-        <div className="text-center p-10 border-2 border-dashed border-foreground/50 rounded-none">
+        <div className="text-center p-10 border-2 border-dashed border-foreground/50 rounded-none bg-[linear-gradient(to_right,#8080804D_1px,transparent_1px),linear-gradient(to_bottom,#80808090_1px,transparent_1px)] [background-size:40px_40px] bg-secondary-background">
             <h2 className="text-2xl font-bold mb-2">Selamat Datang di SIG Plugin!</h2>
             <p className="text-muted-foreground mb-4">
                 Untuk memulai, Anda perlu mengunggah dan mengkonfigurasi data peta untuk wilayah Anda.
@@ -273,7 +273,7 @@ function Dashboard() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
                 {/* Bagian Maps */}
                 <div className='lg:col-span-2'>
-                    <Card className="h-[700px] flex flex-col">
+                    <Card className="h-[700px] flex flex-col bg-[linear-gradient(to_right,#8080804D_1px,transparent_1px),linear-gradient(to_bottom,#80808090_1px,transparent_1px)] [background-size:40px_40px] bg-secondary-background">
                         <CardHeader>
                             <CardTitle>{pageTitle}</CardTitle>
                             <CardDescription>
@@ -307,7 +307,7 @@ function Dashboard() {
                     <DonutChartCard
                         filteredMembers={filteredMembers} // Kirim member yang sudah diproses
                         events={events}
-                        className="h-[700px]"
+                        className="h-[700px] bg-[linear-gradient(to_right,#8080804D_1px,transparent_1px),linear-gradient(to_bottom,#80808090_1px,transparent_1px)] [background-size:40px_40px] bg-secondary-background"
                     />
                 </div>
             </div>

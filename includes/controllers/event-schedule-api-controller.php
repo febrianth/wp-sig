@@ -50,7 +50,13 @@ class EventScheduleApiController {
         register_rest_route('sig/v1', '/check-in', [
             'methods'             => 'POST',
             'callback'            => [$this, 'handle_check_in'],
-            'permission_callback' => [$this, 'permissions_check'],
+            'permission_callback' => [$this, 'admin_permissions_check'],
+        ]);
+
+        register_rest_route('sig/v1', '/member/verify', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'handle_member_verify'],
+            'permission_callback' => [$this, 'admin_permissions_check'],
         ]);
     }
 
@@ -82,19 +88,33 @@ class EventScheduleApiController {
         if (!$member_id || !$event_id) {
             return new WP_Error('missing_params', 'Member ID atau Event ID tidak ada.', ['status' => 400]);
         }
-
-        // Panggil service untuk mencatat kehadiran
-        $result = $this->member_service->add_event_to_member($member_id, $event_id, 'verified');
         
-        if (is_wp_error($result)) {
-            return $result;
+        // Cek status member
+        $member_data = $this->member_service->get_by_id($member_id);
+        if (!$member_data) {
+            return new WP_Error('not_found', 'Peserta tidak ditemukan.', ['status' => 404]);
+        }
+        if ($member_data['status'] !== 'verified') {
+            return new WP_Error('not_verified', 'Peserta ini belum diverifikasi oleh admin.', ['status' => 403]);
         }
 
-        // Ambil data member yang baru di-check-in untuk notifikasi
-        $member_data = $this->member_service->get_by_id($member_id); // Asumsi Anda punya method ini
-        $member_name = $member_data ? $member_data->name : 'Member';
+        // Jika lolos, catat kehadiran sebagai 'pending'
+        $result = $this->member_service->add_event_to_member($member_id, $event_id, 'pending');
+        
+        if (is_wp_error($result)) return $result;
+        return new WP_REST_Response(['message' => "Selamat Datang, {$member_data['name']}!"], 200);
+    }
+    
+    public function handle_member_verify(WP_REST_Request $request) {
+        $params = $request->get_json_params();
+        $member_id = $params['member_id'] ?? null;
+        $status = $params['status'] ?? 'verified'; // 'verified' atau 'rejected'
 
-        return new WP_REST_Response(['message' => "Check-in sukses: $member_name"], 200);
+        $result = $this->event_service->update_member_status($member_id, $status);
+        if (is_wp_error($result)) return $result;
+        
+        $new_data = $this->event_service->get_active_api_form_details();
+        return new WP_REST_Response($new_data, 200);
     }
 
     public function get_active_event_details(WP_REST_Request $request) {

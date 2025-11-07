@@ -1,23 +1,78 @@
-import React, { useState } from "react";
-import { Scanner } from '@yudiel/react-qr-scanner';
+import React, { useState, useRef } from "react";
+import { Scanner } from "@yudiel/react-qr-scanner";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { XCircle, CameraOff } from "lucide-react";
 
-export default function QrReaderComponent() {
-  const [result, setResult] = useState("");
+export default function QrReaderComponent({ onScanSuccess, onError, isCameraOn }) {
+	const [cameraError, setCameraError] = useState(null);
+	const cooldown = useRef(false);
 
-  return (
-    <div className="qr-reader-container" style={{ textAlign: "center", padding: "20px" }}>
-      <h2>QR Code Scanner</h2>
+	const handleCameraError = (error) => {
+		console.error("Camera access error:", error);
+		setCameraError(error);
+		if (onError) onError(error);
+	};
 
-      <Scanner
-        onDecode={(decodedText) => setResult(decodedText)}
-        onError={(error) => console.error(error)}
-        style={{ width: "300px", margin: "auto" }}
-      />
+	const handleScan = (results) => {
+		if (!results || cooldown.current) return;
 
-      <div style={{ marginTop: "20px" }}>
-        <strong>Hasil Scan:</strong>
-        <p>{result || "Arahkan kamera ke QR code..."}</p>
-      </div>
-    </div>
-  );
+		try {
+			const rawValue = results[0]?.rawValue;
+			if (!rawValue) return;
+
+			let parsed;
+			try {
+				parsed = JSON.parse(rawValue);
+			} catch {
+				parsed = { text: rawValue };
+			}
+
+			console.log("QR parsed:", parsed);
+
+			if (typeof onScanSuccess === "function") {
+				onScanSuccess(parsed);
+			}
+
+			// cooldown 2 detik supaya tidak double scan
+			cooldown.current = true;
+			setTimeout(() => {
+				cooldown.current = false;
+			}, 2000);
+		} catch (err) {
+			console.error("Error parsing QR:", err);
+			if (onError) onError(err);
+		}
+	};
+
+	if (cameraError) {
+		return (
+			<Alert variant="destructive" className="text-center">
+				<XCircle className="h-4 w-4 mx-auto mb-1" />
+				<AlertTitle>Akses Kamera Ditolak</AlertTitle>
+				<AlertDescription>
+					Mohon izinkan akses kamera di browser Anda dan refresh halaman.
+				</AlertDescription>
+			</Alert>
+		);
+	}
+
+	if (!isCameraOn) {
+		return (
+			<div className="flex flex-col items-center justify-center h-64 bg-muted rounded-md text-center">
+				<CameraOff className="h-10 w-10 mb-2 text-muted-foreground" />
+				<p>Kamera dimatikan.</p>
+			</div>
+		);
+	}
+
+	return (
+		<div className="rounded-md overflow-hidden border">
+			<Scanner
+				onScan={handleScan}
+				onError={handleCameraError}
+				constraints={{ facingMode: "environment" }}
+				videoStyle={{ width: "100%", height: "auto", borderRadius: "0.5rem" }}
+			/>
+		</div>
+	);
 }

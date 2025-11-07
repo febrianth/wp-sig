@@ -104,15 +104,27 @@ class EventService
             $members_table = $this->wpdb->prefix . 'sig_members';
             $member_events_table = $this->wpdb->prefix . 'sig_member_events';
 
-            // PERBAIKAN QUERY: Ambil lebih banyak data dan filter status yang relevan
+
             $event['pending_members'] = $this->wpdb->get_results(
+                "
+                SELECT *
+                FROM {$members_table}
+                WHERE status = 'pending'
+                  AND deleted_at IS NULL
+                ORDER BY created_at DESC",
+                ARRAY_A
+            );
+
+            $event['pending_attendance'] = $this->wpdb->get_results(
                 $this->wpdb->prepare(
                     "SELECT 
                         m.name, m.phone_number, m.district_id, m.village_id, 
                         me.id as member_event_id, 
                         me.status 
                      FROM {$member_events_table} AS me
-                     LEFT JOIN {$members_table} AS m ON me.member_id = m.id
+                     LEFT JOIN {$members_table} AS m 
+                            ON me.member_id = m.id
+                           AND m.status = 'verified' 
                      WHERE me.event_id = %d 
                        AND me.status IN ('pending', 'rejected') 
                        AND me.deleted_at IS NULL
@@ -135,6 +147,26 @@ class EventService
 
         $success = $this->wpdb->update(
             $this->wpdb->prefix . 'sig_member_events',
+            ['status' => $status, 'updated_at' => current_time('mysql', 1)], // Data baru
+            ['id' => $member_event_id] // Kondisi WHERE
+        );
+
+        if ($success === false) {
+            return new WP_Error('db_update_error', 'Gagal memperbarui status member.', ['status' => 500]);
+        }
+        return true;
+    }
+
+    public function update_member_status($member_event_id, $status)
+    {
+        // Validasi status untuk keamanan
+        $allowed_statuses = ['pending', 'verified', 'rejected'];
+        if (!in_array($status, $allowed_statuses)) {
+            return new WP_Error('invalid_status', 'Status tidak valid.', ['status' => 400]);
+        }
+
+        $success = $this->wpdb->update(
+            $this->wpdb->prefix . 'sig_members',
             ['status' => $status, 'updated_at' => current_time('mysql', 1)], // Data baru
             ['id' => $member_event_id] // Kondisi WHERE
         );

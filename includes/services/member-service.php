@@ -107,14 +107,14 @@ class MemberService
         if ($existing_entry) {
             // Jika sudah ada, cukup perbarui statusnya (misal, dari 'pending'/'rejected' menjadi 'verified')
             $this->wpdb->update(
-                $table,
+                $this->table_member_events,
                 ['status' => $status, 'updated_at' => current_time('mysql', 1)],
                 ['id' => $existing_entry->id]
             );
             return $existing_entry->id;
         } else {
             // Jika belum ada sama sekali, buat entri baru
-            $this->wpdb->insert($table, [
+            $this->wpdb->insert($this->table_member_events, [
                 'member_id' => $member_id,
                 'event_id' => $event_id,
                 'status' => $status
