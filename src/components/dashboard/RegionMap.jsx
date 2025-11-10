@@ -3,7 +3,7 @@ import * as d3 from 'd3';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
-function RegionMap({ className, geojsonUrl, aggregatedData, idKey, nameKey, onRegionClick, filterByCode, filterKey, districtId = null, districtKey = null }) {
+function RegionMap({ className, geojsonUrl, aggregatedData, idKey, nameKey, onRegionClick, filterByCode, filterKey, districtId = null, districtKey = null, luarDaerahCount }) {
     const svgRef = useRef(null);
     const containerRef = useRef(null);
     const [tooltip, setTooltip] = useState({ visible: false, content: '', x: 0, y: 0 });
@@ -25,6 +25,26 @@ function RegionMap({ className, geojsonUrl, aggregatedData, idKey, nameKey, onRe
                     features = geojson.features.filter(f => String(f.properties[districtKey]) === String(districtId));
                 }
                 features = features.filter(f => String(f.properties[filterKey]) === String(filterByCode));
+            }
+
+            if (!filterByCode && luarDaerahCount > 0) {
+                // Buat grup baru untuk kotak info
+                const infoBox = svg.append('g')
+                    .attr('transform', `translate(10, ${height - 40})`); // Posisi di kiri bawah
+
+                infoBox.append('rect')
+                    .attr('width', 150)
+                    .attr('height', 30)
+                    .attr('fill', '#f0f0f0') // Warna abu-abu seperti wilayah 0
+                    .attr('stroke', '#000')
+                    .attr('stroke-width', 1);
+
+                infoBox.append('text')
+                    .attr('x', 10)
+                    .attr('y', 20)
+                    .style('font-size', '12px')
+                    .style('font-weight', 'bold')
+                    .text(`Luar Daerah: ${luarDaerahCount}`);
             }
 
             const filteredGeojson = { type: 'FeatureCollection', features };
@@ -107,7 +127,7 @@ function RegionMap({ className, geojsonUrl, aggregatedData, idKey, nameKey, onRe
 
         }).catch(err => console.error("Gagal memuat GeoJSON:", err));
 
-    }, [geojsonUrl, aggregatedData, idKey, nameKey, onRegionClick, filterByCode, filterKey]);
+    }, [geojsonUrl, aggregatedData, idKey, nameKey, onRegionClick, filterByCode, filterKey, luarDaerahCount]);
     return (
         <TooltipProvider>
             <div 

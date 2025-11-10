@@ -46,13 +46,10 @@ export default function QrReaderComponent({ onScanSuccess, onError, isCameraOn }
 
 	if (cameraError) {
 		return (
-			<Alert variant="destructive" className="text-center">
-				<XCircle className="h-4 w-4 mx-auto mb-1" />
-				<AlertTitle>Akses Kamera Ditolak</AlertTitle>
-				<AlertDescription>
-					Mohon izinkan akses kamera di browser Anda dan refresh halaman.
-				</AlertDescription>
-			</Alert>
+			<div className="flex flex-col items-center justify-center h-64 bg-muted rounded-md text-center">
+				<CameraOff className="h-10 w-10 mb-2 text-muted-foreground" />
+				<p>Mohon izinkan akses kamera di browser Anda dan refresh halaman.</p>
+			</div>
 		);
 	}
 

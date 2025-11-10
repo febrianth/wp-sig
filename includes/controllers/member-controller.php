@@ -38,6 +38,11 @@ class MemberApiController
                 'callback' => [$this, 'delete_member'],
                 'permission_callback' => [$this, 'admin_permissions_check'],
             ],
+            [
+                'methods' => 'GET',
+                'callback' => [$this, 'get_member_detail'],
+                'permission_callback' => [$this, 'admin_permissions_check'],
+            ],
         ]);
     }
 
@@ -47,6 +52,20 @@ class MemberApiController
     public function get_members()
     {
         $data = $this->member_service->get_all();
+        return new WP_REST_Response($data, 200);
+    }
+
+    public function get_member_detail(WP_REST_Request $request) {
+        $id = $request->get_param('id');
+        $data = $this->member_service->get_member_details($id);
+
+        if (empty($data)) {
+            return new WP_Error('not_found', 'Member tidak ditemukan.', ['status' => 404]);
+        }
+        
+        $settings = get_option('sig_plugin_settings', []);
+        $data['map_data'] = $settings['map_data'] ?? [];
+
         return new WP_REST_Response($data, 200);
     }
 

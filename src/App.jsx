@@ -10,6 +10,7 @@ import GeneralSettings from './pages/settings/GeneralSettings';
 import ImportPage from './pages/settings/importPage';
 import EventPage from './pages/EventPage';
 import AttendancePage from './pages/AttendancePage';
+import MemberDetailPage from './pages/members/MemberDetailPage';
 
 function App() {
     return (
@@ -25,8 +26,9 @@ function App() {
                     {/* 3. Buat Rute Bersarang untuk Pengaturan */}
                     <Route path="/settings" element={<SettingsLayout />}>
                         <Route index element={<GeneralSettings />} /> {/* Halaman default untuk /settings */}
-                        <Route path="import" element={<ImportPage />} /> {/* <-- Rute Import excel */}
+                        <Route path="import" element={<ImportPage />} />
                     </Route>
+                    <Route path="/member/:memberId" element={<MemberDetailPage />} />
                 </Routes>
                 <Toaster duration={3000} />
             </main>

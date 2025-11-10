@@ -90,8 +90,8 @@ function ImportPage() {
                                 {status === 'success' && (
                                     <div className="space-y-2">
                                         <p>Total Baris Data: <span className="font-bold">{summary.total}</span></p>
-                                        <p className="text-green-600">Berhasil Diimpor: <span className="font-bold">{summary.successful}</span></p>
-                                        <p className="text-red-600">Gagal: <span className="font-bold">{summary.failed}</span></p>
+                                        <p>Berhasil Diimpor: <span className="font-bold">{summary.successful}</span></p>
+                                        <p>Gagal: <span className="font-bold">{summary.failed}</span></p>
                                     </div>
                                 )}
                                 {summary.errors?.length > 0 && (

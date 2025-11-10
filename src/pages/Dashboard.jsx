@@ -112,6 +112,10 @@ function Dashboard() {
         return rankedMembers;
     }, [view, members]);
 
+    const luarDaerahCount = useMemo(() => {
+        return members.filter(m => m.is_outside_region == 1).length;
+    }, [members]);
+
     const aggregatedData = useMemo(() => {
         // Jangan jalankan agregasi jika settings atau members belum ada
         if (!members.length || !settings?.map_keys) return {};
@@ -297,6 +301,7 @@ function Dashboard() {
                                 {...mapProps}
                                 aggregatedData={aggregatedData}
                                 className="h-[550px]"
+                                luarDaerahCount={luarDaerahCount}
                             />
                         </CardContent>
                     </Card>

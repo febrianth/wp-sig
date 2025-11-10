@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from "@/hooks/use-toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Info, CheckCircle, XCircle, History, ThumbsDown, Camera, UserCheck } from 'lucide-react';
+import { Info, CheckCircle, XCircle, History, ThumbsDown, Camera, UserCheck, RefreshCw } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import CountdownTimer from '@/components/events/countDownTimer';
@@ -19,7 +19,7 @@ function PendingMembersTable({ settings, members, onStatusChange, isUpdatingId }
     };
 
     return (
-        <Card className="bg-[linear-gradient(to_right,#8080804D_1px,transparent_1px),linear-gradient(to_bottom,#80808090_1px,transparent_1px)] [background-size:40px_40px] bg-secondary-background">
+        <Card >
             <CardHeader>
                 <CardTitle>Daftar Peserta Baru ({members.length})</CardTitle>
                 <CardDescription>Setujui peserta baru agar mereka dapat melakukan check-in.</CardDescription>
@@ -39,7 +39,11 @@ function PendingMembersTable({ settings, members, onStatusChange, isUpdatingId }
                                 members.map((member) => (
                                     <TableRow key={member.id}>
                                         <TableCell>{member.name}<br /><span className="text-xs text-muted-foreground">{member.phone_number}</span></TableCell>
-                                        <TableCell className="text-xs">{getRegionName(member.district_id, member.village_id)}</TableCell>
+                                        {member.is_outside_region == 1 ? (
+                                            <TableCell className="text-xs">Dari Luar Daerah</TableCell>
+                                        ) : (
+                                            <TableCell className="text-xs">{getRegionName(member.district_id, member.village_id)}</TableCell>
+                                        )}
                                         <TableCell className="text-right">
                                             <Button variant="ghost" size="icon" className="bg-red-200 h-8 w-8 mr-1"
                                                 disabled={isUpdatingId === member.id}
@@ -72,7 +76,7 @@ function PendingAttendancesTable({ settings, attendances, onStatusChange, isUpda
     };
 
     return (
-        <Card className="bg-[linear-gradient(to_right,#8080804D_1px,transparent_1px),linear-gradient(to_bottom,#80808090_1px,transparent_1px)] [background-size:40px_40px] bg-secondary-background">
+        <Card >
             <CardHeader>
                 <CardTitle>Daftar kehadiran masuk ({attendances.length})</CardTitle>
                 <CardDescription>Setujui kehadiran peserta yang telah melakukan check-in.</CardDescription>
@@ -92,7 +96,11 @@ function PendingAttendancesTable({ settings, attendances, onStatusChange, isUpda
                                 attendances.map((member) => (
                                     <TableRow key={member.id}>
                                         <TableCell>{member.name}<br /><span className="text-xs text-muted-foreground">{member.phone_number}</span></TableCell>
-                                        <TableCell className="text-xs">{getRegionName(member.district_id, member.village_id)}</TableCell>
+                                        {member.is_outside_region == 1 ? (
+                                            <TableCell className="text-xs">Dari Luar Daerah</TableCell>
+                                        ) : (
+                                            <TableCell className="text-xs">{getRegionName(member.district_id, member.village_id)}</TableCell>
+                                        )}
                                         <TableCell className="text-right">
                                             <Button variant="ghost" size="icon" className="bg-red-200 h-8 w-8 mr-1"
                                                 disabled={isUpdatingId === member.id}
@@ -118,7 +126,7 @@ function PendingAttendancesTable({ settings, attendances, onStatusChange, isUpda
 
 function UsageTipsCard() {
     return (
-        <Card className="bg-[linear-gradient(to_right,#8080804D_1px,transparent_1px),linear-gradient(to_bottom,#80808090_1px,transparent_1px)] [background-size:40px_40px] bg-secondary-background">
+        <Card >
             <CardHeader>
                 <CardTitle className="flex items-center"><Info className="mr-2 h-5 w-5" /> Tips Penggunaan</CardTitle>
             </CardHeader>
@@ -131,7 +139,7 @@ function UsageTipsCard() {
                     <strong>2. Proses Absensi:</strong> Member yang sudah mendaftar (via form) atau ditambah (via impor/manual) bisa menggunakan QR Code mereka untuk check-in ke event yang sedang Anda buka di halaman ini.
                 </p>
                 <p>
-                    <strong>3. Lupa Barcode:</strong> Jika member lupa QR Code, Anda bisa mencarinya di halaman "Dashboard", klik "Edit" pada member tersebut, dan tunjukkan QR Code dari sana. (Fitur "Cetak" akan dikembangkan).
+                    <strong>3. Lupa Barcode:</strong> Jika member lupa QR Code, Anda bisa mencarinya di halaman "Dashboard", ke kolom aksi dan "lihat detail member".
                 </p>
             </CardContent>
         </Card>
@@ -140,7 +148,7 @@ function UsageTipsCard() {
 
 function SettingsCta() {
     return (
-        <Card className="bg-[linear-gradient(to_right,#8080804D_1px,transparent_1px),linear-gradient(to_bottom,#80808090_1px,transparent_1px)] [background-size:40px_40px] bg-secondary-background">
+        <Card >
             <CardHeader>
                 <CardTitle className="flex items-center text-destructive">
                     <Info className="mr-2 h-5 w-5" /> Konfigurasi Belum Selesai
@@ -164,7 +172,7 @@ function SettingsCta() {
 function EventHistoryCard({ history }) {
     if (!history || history.length === 0) return null;
     return (
-        <Card className="bg-[linear-gradient(to_right,#8080804D_1px,transparent_1px),linear-gradient(to_bottom,#80808090_1px,transparent_1px)] [background-size:40px_40px] bg-secondary-background">
+        <Card >
             <CardHeader>
                 <CardTitle className="flex items-center"><History className="mr-2 h-5 w-5" /> Histori Event Selesai</CardTitle>
             </CardHeader>
@@ -203,6 +211,8 @@ function EventPage() {
     const [history, setHistory] = useState([]);
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(null); // State untuk loading tombol reject
     const { toast } = useToast();
+    const [isReloading, setIsReloading] = useState(false);
+
 
     // Fungsi untuk mengambil data event aktif dan settings
     const fetchData = useCallback(async () => {
@@ -253,6 +263,13 @@ function EventPage() {
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.id]: e.target.value });
+    };
+
+    const handleReload = async () => {
+        setIsReloading(true);
+        await fetchData();
+        setIsReloading(false);
+        toast({ title: "Data Diperbarui", description: "Data pending berhasil dimuat ulang." });
     };
 
     const handleMemberStatusChange = async (memberEventId, newStatus) => {
@@ -371,7 +388,7 @@ function EventPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
                 {/* Kolom Kiri: Manajemen */}
                 <div className="space-y-6">
-                    <Card className="bg-[linear-gradient(to_right,#8080804D_1px,transparent_1px),linear-gradient(to_bottom,#80808090_1px,transparent_1px)] [background-size:40px_40px] bg-secondary-background">
+                    <Card >
                         <CardHeader>
                             <CardTitle>Atur Jadwal Event Aktif</CardTitle>
                             <CardDescription>Definisikan event yang sedang dibuka untuk pendaftaran via Form.</CardDescription>
@@ -398,31 +415,13 @@ function EventPage() {
                     </Card>
 
                     <UsageTipsCard />
-
-                    {activeEvent ? (
-                        <>
-                        </>
-                    ) : (
-                        <>
-                            <Card className="bg-[linear-gradient(to_right,#8080804D_1px,transparent_1px),linear-gradient(to_bottom,#80808090_1px,transparent_1px)] [background-size:40px_40px] bg-secondary-background">
-                                <CardHeader>
-                                    <CardTitle className="flex items-center text-destructive">
-                                        <XCircle className="mr-2 h-5 w-5" /> Form Pendaftaran Ditutup
-                                    </CardTitle>
-                                    <CardDescription>Tidak ada event yang sedang dibuka untuk pendaftaran . Form tidak akan menerima data masuk.</CardDescription>
-                                </CardHeader>
-                            </Card>
-
-                            <EventHistoryCard history={history} />
-                        </>
-                    )}
                 </div>
 
                 {/* Kolom Kanan: Status Event Aktif */}
                 <div className="space-y-6">
                     {activeEvent ? (
                         <>
-                            <Card className="bg-[linear-gradient(to_right,#8080804D_1px,transparent_1px),linear-gradient(to_bottom,#80808090_1px,transparent_1px)] [background-size:40px_40px] bg-secondary-background">
+                            <Card >
                                 <CardHeader>
                                     <CardTitle className="flex items-center">
                                         <CheckCircle className="mr-2 h-5 w-5" /> Status Pendaftaran Aktif
@@ -430,7 +429,6 @@ function EventPage() {
                                     <CardDescription>Event <strong>{activeEvent.event_name}</strong> sedang menerima data. </CardDescription>
                                 </CardHeader>
                                 <CardContent className="space-y-4">
-
                                     <CountdownTimer startTime={formData.started_at} endTime={formData.end_at} />
 
                                     <Button asChild className="w-full">
@@ -439,15 +437,26 @@ function EventPage() {
 
                                     <AlertDialog>
                                         <AlertDialogTrigger asChild>
-                                            <Button disabled={isFinishing}>
-                                                {isFinishing ? 'Memproses...' : 'Selesaikan Event & Setujui Peserta'}
-                                            </Button>
+                                            <div className="flex justify-between w-full">
+                                                <Button disabled={isFinishing}>
+                                                    <CheckCircle/>
+                                                    {isFinishing ? 'Memproses...' : 'Selesaikan Event & Setujui Peserta'}
+                                                </Button>
+
+                                                <Button
+                                                    onClick={handleReload}
+                                                    disabled={isReloading}
+                                                >
+                                                    <RefreshCw className="mr-2 h-4 w-4" />
+                                                    {isReloading ? "Memuat..." : "Reload Data Peserta"}
+                                                </Button>
+                                            </div>
                                         </AlertDialogTrigger>
                                         <AlertDialogContent>
                                             <AlertDialogHeader>
                                                 <AlertDialogTitle>Anda Yakin?</AlertDialogTitle>
                                                 <AlertDialogDescription>
-                                                    Tindakan ini akan menutup event, menyetujui semua member 'pending', menutup pendaftaran peserta dan menutup check-in untuk event ini.
+                                                    Tindakan ini akan menutup event, menyetujui semua peserta 'pending', menutup pendaftaran peserta dan menutup check-in untuk event ini.
                                                 </AlertDialogDescription>
                                             </AlertDialogHeader>
                                             <AlertDialogFooter>
@@ -475,6 +484,16 @@ function EventPage() {
                         </>
                     ) : (
                         <>
+                            <Card >
+                                <CardHeader>
+                                    <CardTitle className="flex items-center text-destructive">
+                                        <XCircle className="mr-2 h-5 w-5" /> Form Pendaftaran Ditutup
+                                    </CardTitle>
+                                    <CardDescription>Tidak ada event yang sedang dibuka untuk pendaftaran . Form tidak akan menerima data masuk.</CardDescription>
+                                </CardHeader>
+                            </Card>
+
+                            <EventHistoryCard history={history} />
                         </>
                     )}
                 </div>

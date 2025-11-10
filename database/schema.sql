@@ -2,6 +2,7 @@ CREATE TABLE `%%PREFIX%%sig_members` (
     `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
     `name` VARCHAR(255) NOT NULL,
     `phone_number` VARCHAR(25) NULL,
+    `is_outside_region` BOOLEAN NOT NULL DEFAULT FALSE,    
     `full_address` TEXT NULL,
     `district_id` VARCHAR(20) NULL,
     `village_id` VARCHAR(20) NULL,

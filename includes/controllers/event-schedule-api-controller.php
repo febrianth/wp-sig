@@ -81,6 +81,16 @@ class EventScheduleApiController {
     }
 
     public function handle_check_in(WP_REST_Request $request) {
+        $validation_result = $this->member_service->validate_active_events();
+
+        if (is_wp_error($validation_result)) {
+            $status = $validation_result->get_error_data()['status'] ?? 403;
+            return new WP_REST_Response(
+                ['message' => $validation_result->get_error_message()],
+                $status
+            );
+        }
+        
         $params = $request->get_json_params();
         $member_id = $params['member_id'] ?? null;
         $event_id = $params['event_id'] ?? null;

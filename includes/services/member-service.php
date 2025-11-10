@@ -1,10 +1,14 @@
 <?php
+require_once WP_SIG_PLUGIN_PATH . 'includes/services/event-service.php';
+
 class MemberService
 {
 
     private $wpdb;
     private $table_members;
     private $table_member_events;
+    private $event_service;
+
 
     public function __construct()
     {
@@ -12,6 +16,7 @@ class MemberService
         $this->wpdb = $wpdb;
         $this->table_members = $this->wpdb->prefix . 'sig_members';
         $this->table_member_events = $this->wpdb->prefix . 'sig_member_events';
+        $this->event_service = new EventService();
     }
 
     /**
@@ -49,6 +54,45 @@ class MemberService
         }
 
         return $results;
+    }
+
+    public function get_member_details($id)
+    {
+        $member = $this->wpdb->get_row(
+            $this->wpdb->prepare(
+                "SELECT * FROM {$this->table_members} WHERE id = %d AND deleted_at IS NULL",
+                $id
+            ),
+            ARRAY_A
+        );
+
+        if (!$member) {
+            return null; // Member tidak ditemukan
+        }
+
+        // 2. Ambil riwayat event untuk member ini
+        $events_table = $this->wpdb->prefix . 'sig_events';
+        $member_events_table = $this->wpdb->prefix . 'sig_member_events';
+
+        $events = $this->wpdb->get_results(
+            $this->wpdb->prepare(
+                "SELECT e.event_name, e.started_at, me.status
+                 FROM {$member_events_table} AS me
+                 LEFT JOIN {$events_table} AS e ON me.event_id = e.id
+                 WHERE me.member_id = %d AND me.deleted_at IS NULL
+                 ORDER BY e.started_at DESC",
+                $id
+            ),
+            ARRAY_A
+        );
+
+        $member['events'] = $events;
+
+        $member['event_count'] = count(array_filter($events, function ($e) {
+            return $e['status'] === 'verified';
+        }));
+
+        return $member;
     }
 
     public function find_or_create($name, $phone_number, $additional_data = [])
@@ -109,9 +153,9 @@ class MemberService
             $this->wpdb->update(
                 $this->table_member_events,
                 ['status' => $status, 'updated_at' => current_time('mysql', 1)],
-                ['id' => $existing_entry->id]
+                ['id' => $existing_entry]
             );
-            return $existing_entry->id;
+            return $existing_entry;
         } else {
             // Jika belum ada sama sekali, buat entri baru
             $this->wpdb->insert($this->table_member_events, [
@@ -121,6 +165,53 @@ class MemberService
             ]);
             return $this->wpdb->insert_id;
         }
+    }
+
+    public function validate_active_events()
+    {
+        $active_event = $this->event_service->get_active_api_form_details();
+
+        if (!$active_event) {
+            return new WP_Error(
+                'no_active_event',
+                'Pendaftaran ditutup. Tidak ada event yang sedang dibuka.',
+                ['status' => 403] // 403 Forbidden
+            );
+        }
+
+        // 2. Cek apakah dalam rentang waktu
+        $site_timezone = wp_timezone();
+
+        // 2. Buat semua objek waktu menggunakan zona waktu yang SAMA
+        $now = new DateTimeImmutable('now', $site_timezone);
+        $start_datetime = new DateTimeImmutable($active_event['started_at'], $site_timezone);
+        $end_datetime   = new DateTimeImmutable($active_event['end_at'], $site_timezone);
+
+        $localized_format = 'l, j F Y \P\u\k\u\l H:i';
+
+        // 3. Cek jika event belum dimulai (TOO EARLY)
+        if ($now < $start_datetime) {
+            $formatted_start = wp_date($localized_format, $start_datetime->getTimestamp());
+
+            return new WP_Error(
+                'event_not_started',
+                'Pendaftaran untuk ' . $active_event['event_name'] . ' belum dibuka. Dibuka pada: ' . $formatted_start,
+                ['status' => 403]
+            );
+        }
+
+        // 4. Cek jika event sudah berakhir (TOO LATE)
+        if ($now > $end_datetime) {
+            $formatted_end = wp_date($localized_format, $end_datetime->getTimestamp());
+
+            return new WP_Error(
+                'event_ended',
+                'Pendaftaran untuk ' . $active_event['event_name'] . ' sudah ditutup. Berakhir pada: ' . $formatted_end,
+                ['status' => 403]
+            );
+        }
+
+        return true;
     }
 
     public function create(array $data)
@@ -148,6 +239,11 @@ class MemberService
                 ['status' => 409]
             ); // 409 Conflict
         }
+        
+        if (!empty($data['is_outside_region'])) {
+            $data['district_id'] = null;
+            $data['village_id'] = null;
+        }
 
         $formatted_data = [
             'name'         => $name,
@@ -156,11 +252,17 @@ class MemberService
             'full_address' => sanitize_textarea_field($data['full_address']),
             'district_id'  => sanitize_text_field($data['district_id']),
             'village_id'   => sanitize_text_field($data['village_id']),
+            'is_outside_region'   => sanitize_text_field($data['is_outside_region']),
         ];
 
         $success = $this->wpdb->insert($this->table_members, $formatted_data);
         if (!$success) {
             return new WP_Error('db_insert_error', 'Gagal menyimpan data ke database.', ['status' => 500]);
+        }
+
+        // 3. Sinkronkan (hapus semua yang lama, tambah semua yang baru)
+        if (!empty($data['event_ids'])) {
+            $this->sync_events($this->wpdb->insert_id, $data['event_ids']);
         }
         return $this->wpdb->insert_id;
     }
@@ -174,6 +276,11 @@ class MemberService
         $event_ids = $data['event_ids'] ?? [];
         unset($data['event_ids']); // Hapus dari array data member
 
+        if (!empty($data['is_outside_region'])) {
+            $data['district_id'] = null;
+            $data['village_id'] = null;
+        }
+
         // 2. Sanitasi data member
         $formatted_data = [
             'name'         => sanitize_text_field($data['name']),
@@ -181,6 +288,7 @@ class MemberService
             'phone_number' => sanitize_text_field($data['phone_number']),
             'district_id'  => sanitize_text_field($data['district_id']),
             'village_id'   => sanitize_text_field($data['village_id']),
+            'is_outside_region'   => sanitize_text_field($data['is_outside_region']),
         ];
 
         $success = $this->wpdb->update($this->table_members, $formatted_data, ['id' => $id]);

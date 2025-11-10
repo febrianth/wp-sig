@@ -155,12 +155,6 @@ class Wp_Sig
 		require_once plugin_dir_path(dirname(__FILE__)) . 'includes/controllers/event-schedule-api-controller.php';
 		
 		/**
-		 * The class responsible for defining the controller event form API
-		 * side of the site.
-		 */
-		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/controllers/form-api-controller.php';
-		
-		/**
 		 * The class responsible for defining the controller event public API
 		 * side of the site.
 		 */
@@ -219,9 +213,6 @@ class Wp_Sig
 
 		$event_schedule_controller = new EventScheduleApiController();
 		$this->loader->add_action('rest_api_init', $event_schedule_controller, 'register_routes');
-
-		$form_api_controller = new formApiController();
-		$this->loader->add_action('rest_api_init', $form_api_controller, 'register_routes');
 	}
 
 	/**

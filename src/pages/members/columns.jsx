@@ -1,8 +1,9 @@
 "use client"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Link } from "react-router-dom";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { MoreHorizontal } from "lucide-react"
+import { MoreHorizontal, Eye } from "lucide-react"
 
 export const generateColumns = ({ onEdit, onDelete, settings }) => [
     {
@@ -18,6 +19,9 @@ export const generateColumns = ({ onEdit, onDelete, settings }) => [
         header: "Wilayah",
         cell: ({ row }) => {
             const member = row.original;
+            if (member.is_outside_region == 1) {
+                return <span className="text-muted-foreground italic">Dari Luar Daerah</span>;
+            }
             const districtName = settings?.map_data?.districts?.[member.district_id]
                 || <span className="text-destructive">[{member.district_id || 'N/A'}]</span>;
             const villageObject = settings?.map_data?.villages?.[member.village_id];
@@ -33,10 +37,9 @@ export const generateColumns = ({ onEdit, onDelete, settings }) => [
         header: "Alamat Lengkap"
     },
     {
-        accessorKey: "event_count", // Ambil data 'badge' yang sudah kita proses
+        accessorKey: "event_count",
         header: "Peringkat",
         cell: ({ row }) => {
-            // Tampilan (cell) tetap mengambil data 'badge' dari 'row.original'
             const badge = row.original.badge;
             if (!badge) return null;
             return <Badge className={badge.classname}>{badge.text}</Badge>;
@@ -54,6 +57,11 @@ export const generateColumns = ({ onEdit, onDelete, settings }) => [
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Aksi</DropdownMenuLabel>
+                            <DropdownMenuItem>
+                                <Link to={`/member/${member.id}`}>
+                                    Lihat Detail
+                                </Link>
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => onEdit(member)}>Edit</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => onDelete(member)} className="text-destructive">Hapus</DropdownMenuItem>
                         </DropdownMenuContent>
@@ -61,6 +69,6 @@ export const generateColumns = ({ onEdit, onDelete, settings }) => [
                 </div>
             );
         },
-        enableSorting: false, // <-- PERBAIKAN 2: Nonaktifkan sorting untuk kolom Aksi
+        enableSorting: false,
     },
 ];

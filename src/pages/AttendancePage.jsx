@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from "@/hooks/use-toast";
 import QrReaderComponent from '@/components/events/QrCodeReader';
-import { Camera, CameraOff, XCircle, Info, CheckCircle } from 'lucide-react';
+import { Camera, CameraOff, XCircle, Info, CheckCircle, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import CountdownTimer from '@/components/events/countDownTimer';
 
@@ -54,20 +54,29 @@ function AttendanceScanner({ activeEvent, onScanSuccess, isCameraOn }) {
 
 function UsageTipsCard() {
     return (
-        <Card>
+        <Card >
             <CardHeader>
-                <CardTitle className="flex items-center"><Info className="mr-2 h-5 w-5" /> Tips Penggunaan</CardTitle>
+                <CardTitle className="flex items-center"><Info className="mr-2 h-5 w-5" /> Alur Kerja Peserta</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 text-sm text-muted-foreground">
                 <p>
-                    <strong>1. Alur Registrasi:</strong> Buat Halaman WordPress baru dan tambahkan shortcode
-                    <code>[sig_registration_form]</code>. Bagikan link halaman tersebut kepada calon member.
+                    <strong>1. Pendaftaran Peserta Baru:</strong>
+                    Bagi yang belum memiliki QR Code, silakan melakukan pendaftaran terlebih dahulu melalui formulir registrasi. Setelah berhasil mendaftar, sistem akan memberikan QR Code unik sebagai tanda identitas peserta.
                 </p>
+
                 <p>
-                    <strong>2. Proses Absensi:</strong> Member yang sudah mendaftar (via form) atau ditambah (via impor/manual) bisa menggunakan QR Code mereka untuk check-in ke event yang sedang Anda buka di halaman ini.
+                    <strong>2. Proses Check-in Kehadiran:</strong>
+                    Arahkan QR Code Anda ke kamera pemindai di halaman ini. Tunggu hingga sistem berhasil membaca dan mencatat kehadiran Anda secara otomatis.
                 </p>
+
                 <p>
-                    <strong>3. Lupa Barcode:</strong> Jika member lupa QR Code, Anda bisa mencarinya di halaman "Dashboard", klik "Edit" pada member tersebut, dan tunjukkan QR Code dari sana. (Fitur "Cetak" akan dikembangkan).
+                    <strong>3. Peserta yang Belum Pernah Mengikuti:</strong>
+                    Jika ini pertama kalinya Anda mengikuti kegiatan, pastikan untuk mendaftar terlebih dahulu agar mendapatkan QR Code sebelum melakukan check-in.
+                </p>
+
+                <p>
+                    <strong>4. Lupa atau Kehilangan QR Code:</strong>
+                    Bagi peserta yang sudah pernah mengikuti namun lupa atau kehilangan QR Code, dapat menghubungi petugas untuk membantu mencarikan dan menampilkan ulang QR Code tersebut.
                 </p>
             </CardContent>
         </Card>
@@ -92,35 +101,6 @@ function AttendancePage() {
             });
     }, []);
 
-    const handleScan = (result) => {
-        if (result && result.rawValue && result.rawValue !== lastScanned) {
-            setLastScanned(result.rawValue); // Cegah double scan
-            try {
-                const data = JSON.parse(result.rawValue);
-
-                if (data.id && activeEvent?.id) {
-                    // Panggil fungsi API check-in di sini
-                    onScanSuccess(data.id, activeEvent.id);
-                } else {
-                    toast({
-                        variant: "destructive",
-                        title: "QR Code Tidak Valid",
-                    });
-                }
-            } catch (e) {
-                console.error("QR parsing error:", e);
-                toast({
-                    variant: "destructive",
-                    title: "Error Membaca QR",
-                    description: "Pastikan QR Code berisi data yang valid.",
-                });
-            }
-
-            setTimeout(() => setLastScanned(''), 3000);
-        }
-    };
-
-
     const onScanSuccess = async (memberId, eventId) => {
         try {
             const response = await fetch(sig_plugin_data.api_url + 'check-in', {
@@ -129,7 +109,7 @@ function AttendancePage() {
                 body: JSON.stringify({ member_id: memberId, event_id: eventId }),
             });
             const result = await response.json();
-            if (!response.ok) throw new Error(result.error || 'Check-in gagal.');
+            if (!response.ok) throw new Error(result.message || 'Check-in gagal.');
 
             toast({ title: "Check-in Berhasil!", description: result.message });
             setLastScanned(result.message); // Tampilkan pesan selamat datang
@@ -143,7 +123,7 @@ function AttendancePage() {
     if (!activeEvent) {
         return (
             <div className="flex items-center justify-center h-screen">
-                <Card className="max-w-lg">
+                <Card className="max-w-lg bg-[linear-gradient(to_right,#8080804D_1px,transparent_1px),linear-gradient(to_bottom,#80808090_1px,transparent_1px)] [background-size:40px_40px] bg-secondary-background">
                     <CardHeader>
                         <CardTitle className="flex items-center text-destructive"><XCircle className="mr-2 h-5 w-5" /> Tidak Ada Event Aktif</CardTitle>
                     </CardHeader>
@@ -158,7 +138,7 @@ function AttendancePage() {
 
     return (
         <div className="w-full h-screen bg-background p-8 flex flex-col items-center">
-            <Card className="w-full max-w-2xl">
+            <Card className="w-full max-w-2xl bg-[linear-gradient(to_right,#8080804D_1px,transparent_1px),linear-gradient(to_bottom,#80808090_1px,transparent_1px)] [background-size:40px_40px] bg-secondary-background">
                 <CardHeader className="text-center">
                     <CardTitle className="text-3xl">{activeEvent.event_name}</CardTitle>
                     <CardDescription>Arahkan QR Code peserta ke kamera untuk mencatat kehadiran.</CardDescription>
@@ -166,13 +146,28 @@ function AttendancePage() {
                 <CardContent className="space-y-4">
                     <CountdownTimer startTime={activeEvent.started_at} endTime={activeEvent.end_at} />
 
-                    <div className="flex justify-between items-center">
-                        <Button onClick={() => setIsCameraOn(!isCameraOn)} variant="outline">
-                            {isCameraOn ? <CameraOff className="mr-2 h-4 w-4" /> : <Camera className="mr-2 h-4 w-4" />}
-                            {isCameraOn ? 'Matikan Kamera' : 'Nyalakan Kamera'}
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-0">
+                        <Button
+                            onClick={() => setIsCameraOn(!isCameraOn)}
+                            variant="outline"
+                            className="w-full sm:w-auto"
+                        >
+                            {isCameraOn ? (
+                                <CameraOff className="mr-2 h-4 w-4" />
+                            ) : (
+                                <Camera className="mr-2 h-4 w-4" />
+                            )}
+                            {isCameraOn ? "Matikan Kamera" : "Nyalakan Kamera"}
                         </Button>
-                        <Button asChild variant="ghost"><Link to="/make-event">Kembali ke Manajemen Event</Link></Button>
+
+                        <Button asChild variant="ghost" className="w-full sm:w-auto">
+                            <Link to="/make-event">
+                                <ArrowLeft className="mr-2 h-4 w-4" />
+                                Kembali ke Manajemen Event
+                            </Link>
+                        </Button>
                     </div>
+
 
                     <AttendanceScanner
                         activeEvent={activeEvent}

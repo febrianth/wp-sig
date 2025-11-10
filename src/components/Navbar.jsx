@@ -63,7 +63,7 @@ export default function Navbar() {
 						<NavLink to="/dashboard" className="text-black font-medium text-lg" onClick={closeMobileMenu}>
 							Dashboard
 						</NavLink>
-						<NavLink to="/event" className="text-black font-medium text-lg" onClick={closeMobileMenu}>
+						<NavLink to="/make-event" className="text-black font-medium text-lg" onClick={closeMobileMenu}>
 							Buat Event
 						</NavLink>
 						<div className="border-t border-gray-300 my-2"></div>

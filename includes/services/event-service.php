@@ -248,14 +248,20 @@ class EventService
 
         $event_id = $active_event['id'];
 
-        // 1. Setujui (approve) semua member yang pending untuk event ini
+        // Setujui (approve) semua member yang pending untuk event ini
         $this->wpdb->update(
             $this->wpdb->prefix . 'sig_member_events',
             ['status' => 'verified', 'updated_at' => current_time('mysql', 1)],
-            ['event_id' => $event_id, 'status' => 'pending']
+            ['event_id' => $event_id, 'status' => 'pending', 'deleted_at' => null]
         );
 
-        // 2. Nonaktifkan event ini dari api_form
+        $this->wpdb->update(
+            $this->wpdb->prefix . 'sig_members',
+            ['status' => 'verified', 'updated_at' => current_time('mysql', 1)],
+            ['deleted_at' => null, 'status' => 'pending']
+        );
+
+        // Nonaktifkan event ini dari api_form
         $this->wpdb->update(
             $this->table_name,
             ['status' => 0],

@@ -26,12 +26,14 @@ class ImportService
             $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file_path);
             $worksheet = $spreadsheet->getActiveSheet();
             $rows = $worksheet->toArray();
+            //filter empty rows
+            $rows = array_filter($rows, fn($row) => count(array_filter($row)) > 0);
             $header = array_map('strtolower', array_shift($rows));
-
+            
             $success_count = 0;
             $failure_count = 0;
             $errors = [];
-
+            
             foreach ($rows as $index => $row) {
                 $row_data = array_combine($header, $row);
 
@@ -39,7 +41,13 @@ class ImportService
                 $phone_number = $row_data['phone_number'] ?? null;
                 $event_name = $row_data['event_name'] ?? null;
                 $event_date = $row_data['event_date'] ?? null;
-                $combined_village_id = $row_data['village_id'] ?? null;
+                $is_outside_region = $row_data['is_outside_region'] ?? null;
+
+                if (empty($is_outside_region)) {
+                    $combined_village_id = $row_data['village_id'];
+                } else {
+                    $combined_village_id = null;
+                }
 
                 $district_id = null;
                 $village_id = null; // This will store the full combined ID
@@ -62,11 +70,11 @@ class ImportService
 
                 // Siapkan data untuk member baru, termasuk ID yang sudah diparsing
                 $member_details = [
-                    'full_address'  => $row_data['full_address'] ?? '',
-                    'district_id'   => $district_id,
-                    'village_id'    => $village_id,
-                    'latitude'      => $row_data['latitude'] ?? null,
-                    'longitude'     => $row_data['longitude'] ?? null
+                    'full_address'          => $row_data['full_address'] ?? '',
+                    'district_id'           => $district_id,
+                    'village_id'            => $village_id,
+                    'is_outside_region'     => $is_outside_region,
+                    'status'                => 'verified',
                 ];
                 $member_id = $this->member_service->find_or_create($member_name, $phone_number, $member_details);
 

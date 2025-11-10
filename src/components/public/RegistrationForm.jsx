@@ -8,37 +8,83 @@ import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { XCircle } from 'lucide-react';
+import CountdownTimer from '@/components/events/countDownTimer';
+import { Checkbox } from "@/components/ui/checkbox";
 
 function RegistrationForm({ onSuccess }) {
-    const [formData, setFormData] = useState({});
+    const [formData, setFormData] = useState({
+        name: '',
+        phone_number: '',
+        full_address: '',
+        is_outside_region: 0, 
+        district_id: '',
+        village_id: '',
+    });
     const [districts, setDistricts] = useState([]);
     const [villages, setVillages] = useState([]);
     const [filteredVillages, setFilteredVillages] = useState([]);
-    const [isLoading, setIsLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(true); // Mulai loading untuk fetch event
     const [error, setError] = useState(null);
+    const [activeEvent, setActiveEvent] = useState(null); // State untuk event
     const { toast } = useToast();
 
     // Ambil data wilayah (kecamatan & desa) saat komponen dimuat
     useEffect(() => {
-        async function fetchWilayah() {
+        async function fetchData() {
             try {
-                const response = await fetch(sig_public_data.api_url + 'wilayah-data');
-                const data = await response.json();
-                if (!response.ok) throw new Error('Gagal memuat data wilayah.');
-                
-                const districtOptions = Object.entries(data.districts || {}).map(([id, name]) => ({ value: id, label: name }));
-                const villageOptions = Object.entries(data.villages || {}).map(([id, villageObj]) => ({
+                // Ambil data wilayah
+                const wilayahRes = await fetch(sig_public_data.api_url + 'wilayah-data');
+                const wilayahData = await wilayahRes.json();
+                if (!wilayahRes.ok) throw new Error('Gagal memuat data wilayah.');
+
+                const districtOptions = Object.entries(wilayahData.districts || {}).map(([id, name]) => ({ value: id, label: name }));
+                const villageOptions = Object.entries(wilayahData.villages || {}).map(([id, villageObj]) => ({
                     value: id, label: villageObj.name, districtId: villageObj.parent_district
                 }));
-                
                 setDistricts(districtOptions);
                 setVillages(villageOptions);
+
+                // Ambil data event aktif
+                const eventRes = await fetch(sig_public_data.api_url + 'event-schedule', { headers: { 'X-WP-Nonce': sig_public_data.nonce } });
+                const eventText = await eventRes.text();
+                const eventData = eventText ? JSON.parse(eventText) : null;
+                setActiveEvent(eventData); // Simpan event (bisa null)
+
             } catch (err) {
                 setError(err.message);
             }
+            setIsLoading(false);
         }
-        fetchWilayah();
+        fetchData();
     }, []);
+
+    if (isLoading) {
+        return <p className="text-center">Memuat formulir...</p>;
+    }
+
+    if (!activeEvent) {
+        return (
+            <Card className="max-w-lg mx-auto">
+                <CardHeader>
+                    <CardTitle className="flex items-center text-destructive">
+                        <XCircle className="mr-2 h-5 w-5" /> Pendaftaran Ditutup
+                    </CardTitle>
+                    <CardDescription>Saat ini tidak ada event yang sedang membuka pendaftaran. Silakan cek kembali nanti.</CardDescription>
+                </CardHeader>
+            </Card>
+        );
+    }
+
+     const handleOutsideRegionChange = (checked) => {
+        const newValue = checked ? 1 : 0;
+        setFormData((prev) => ({
+            ...prev,
+            is_outside_region: newValue,
+            district_id: newValue ? '' : prev.district_id,
+            village_id: newValue ? '' : prev.village_id,
+        }));
+        if (checked) setFilteredVillages([]);
+    };
 
     const handleChange = (e) => {
         const { id, value } = e.target;
@@ -73,7 +119,7 @@ function RegistrationForm({ onSuccess }) {
             });
             const result = await response.json();
             if (!response.ok) throw new Error(result.message || 'Registrasi gagal.');
-            
+
             onSuccess(result); // Kirim seluruh data sukses (termasuk ID) ke parent
         } catch (error) {
             toast({ variant: "destructive", title: "Registrasi Gagal", description: error.message });
@@ -92,13 +138,17 @@ function RegistrationForm({ onSuccess }) {
     }
 
     return (
-        <Card className="max-w-lg mx-auto">
+        <Card className="max-w-lg mx-auto bg-[linear-gradient(to_right,#8080804D_1px,transparent_1px),linear-gradient(to_bottom,#80808090_1px,transparent_1px)] [background-size:40px_40px] bg-secondary-background">
             <CardHeader>
-                <CardTitle>Formulir Registrasi Peserta</CardTitle>
-                <CardDescription>Silakan isi data Anda untuk mendaftar.</CardDescription>
+                <CardTitle>Formulir Registrasi Event</CardTitle>
+                <CardDescription>Anda sedang mendaftar untuk event: <strong>{activeEvent.event_name}</strong></CardDescription>
             </CardHeader>
-            <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-4">
+            <CardContent className="space-y-4">
+                {/* Tampilkan Countdown */}
+                <CountdownTimer startTime={activeEvent.started_at} endTime={activeEvent.end_at} />
+
+                {/* Tampilkan form */}
+                <form onSubmit={handleSubmit} className="space-y-4 pt-4">
                     <div className="space-y-1">
                         <Label htmlFor="name">Nama Lengkap (Wajib)</Label>
                         <Input id="name" onChange={handleChange} required />
@@ -111,24 +161,39 @@ function RegistrationForm({ onSuccess }) {
                         <Label htmlFor="full_address">Alamat Lengkap</Label>
                         <Textarea id="full_address" onChange={handleChange} />
                     </div>
-                    <div className="space-y-1">
-                        <Label>Kecamatan</Label>
-                        <Select onValueChange={(value) => handleSelectChange('district_id', value)}>
-                            <SelectTrigger><SelectValue placeholder="Pilih Kecamatan..." /></SelectTrigger>
-                            <SelectContent>
-                                {districts.map(d => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
+                     <div className="flex items-center space-x-2">
+                        <Checkbox
+                            id="is_outside_region"
+                            checked={!!formData.is_outside_region}
+                            onCheckedChange={handleOutsideRegionChange}
+                        />
+                        <Label htmlFor="is_outside_region" className="text-sm font-medium">
+                            Saya berasal dari luar daerah
+                        </Label>
                     </div>
-                    <div className="space-y-1">
-                        <Label>Desa/Kelurahan</Label>
-                        <Select onValueChange={(value) => handleSelectChange('village_id', value)} disabled={!formData.district_id}>
-                            <SelectTrigger><SelectValue placeholder="Pilih Desa..." /></SelectTrigger>
-                            <SelectContent>
-                                {filteredVillages.map(v => <SelectItem key={v.value} value={v.value}>{v.label}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    </div>
+                    {!formData.is_outside_region && (
+                        <>
+                            <div className="space-y-1">
+                                <Label>Kecamatan</Label>
+                                <Select onValueChange={(value) => handleSelectChange('district_id', value)}>
+                                    <SelectTrigger><SelectValue placeholder="Pilih Kecamatan..." /></SelectTrigger>
+                                    <SelectContent>
+                                        {districts.map(d => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-1">
+                                <Label>Desa/Kelurahan</Label>
+                                <Select onValueChange={(value) => handleSelectChange('village_id', value)} disabled={!formData.district_id}>
+                                    <SelectTrigger><SelectValue placeholder="Pilih Desa..." /></SelectTrigger>
+                                    <SelectContent>
+                                        {filteredVillages.map(v => <SelectItem key={v.value} value={v.value}>{v.label}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </>
+                    )}
+
                     <Button type="submit" disabled={isLoading} className="w-full">
                         {isLoading ? 'Mendaftar...' : 'Daftar Sekarang'}
                     </Button>
