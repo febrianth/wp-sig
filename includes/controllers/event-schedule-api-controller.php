@@ -17,7 +17,7 @@ class EventScheduleApiController {
         register_rest_route('sig/v1', '/event-schedule', [
             'methods'             => 'GET',
             'callback'            => [$this, 'get_active_event_details'],
-            'permission_callback' => [$this, '__return_true'],
+            'permission_callback' => '__return_true',
         ]);
 
         // Endpoint untuk MENYIMPAN/MEMPERBARUI event aktif
