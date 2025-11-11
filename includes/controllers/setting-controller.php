@@ -44,6 +44,12 @@ class SettingsApiController
             'permission_callback' => [$this, 'admin_permissions_check'],
         ]);
 
+        register_rest_route('sig-maps/v1', '/geojson/(?P<type>[a-zA-Z0-9_-]+)', [
+            'methods'               => 'GET',
+            'callback'              => [$this, 'get_geojson'],
+            'permission_callback'   => '__return_true'
+        ]);
+
         register_rest_route('sig/v1', '/settings/regenerate-api-key', [
             'methods'             => 'POST',
             'callback'            => [$this, 'handle_regenerate_key'],
@@ -60,7 +66,8 @@ class SettingsApiController
         return new WP_REST_Response($settings, 200);
     }
 
-    public function handle_regenerate_key(WP_REST_Request $request) {
+    public function handle_regenerate_key(WP_REST_Request $request)
+    {
         $new_key = $this->settings_service->regenerate_api_key();
         if ($new_key) {
             return new WP_REST_Response(['api_key' => $new_key], 200);
@@ -86,25 +93,68 @@ class SettingsApiController
 
     public function handle_upload(WP_REST_Request $request)
     {
-        $files = $request->get_file_params();
-        $file_type = $request->get_param('file_type'); // Mengambil file_type dari FormData
+        $file = $_FILES['geojson_file'] ?? null;
+        $type = sanitize_text_field($request->get_param('file_type'));
 
-        if (empty($files['geojson_file']) || empty($file_type)) {
-            return new WP_REST_Response(['error' => 'File atau tipe file tidak ditemukan.'], 400);
+        if (!$file || empty($file['tmp_name'])) {
+            return new WP_REST_Response(['error' => 'File tidak ditemukan.'], 400);
         }
 
-        // Panggil service dengan file dan tipe file
-        $result = $this->settings_service->handle_geojson_upload($files['geojson_file'], $file_type);
-
-        if ($result['success']) {
-            return new WP_REST_Response(['url' => $result['url']], 200);
-        } else {
-            return new WP_REST_Response(['error' => $result['error']], 500);
+        if (!in_array($type, ['districts', 'villages'])) {
+            return new WP_REST_Response(['error' => 'Tipe file tidak valid.'], 400);
         }
+
+        $type_key = $type === 'districts' ? 'district' : 'village';
+        $result = $this->settings_service->store_geojson($type_key, $file, get_current_user_id());
+
+        if (is_wp_error($result)) {
+            return new WP_REST_Response(['error' => $result->get_error_message()], 500);
+        }
+
+        $url = rest_url('sig-maps/v1/geojson/' . $type_key);
+        $this->settings_service->handle_save_geojson_settings($type, $url);
+
+        return new WP_REST_Response([
+            'success' => true,
+            'message' => 'GeoJSON berhasil disimpan ke database.',
+            'url' => $url
+        ]);
+    }
+
+    public function get_geojson(WP_REST_Request $request)
+    {
+        $type = sanitize_text_field($request['type']);
+        $geojson = $this->settings_service->get_geojson($type);
+
+        if (empty($geojson) || $geojson === '{}') {
+            return new WP_REST_Response(['error' => 'Data not found'], 404);
+        }
+
+        // Cek apakah client mendukung gzip
+        $accept_encoding = $_SERVER['HTTP_ACCEPT_ENCODING'] ?? '';
+        $supports_gzip = stripos($accept_encoding, 'gzip') !== false;
+
+        // Jangan kirim pakai WP_REST_Response, kirim mentah
+        if ($supports_gzip) {
+            $compressed = gzencode($geojson, 6);
+
+            header('Content-Type: application/json');
+            header('Content-Encoding: gzip');
+            header('Vary: Accept-Encoding');
+            header('Content-Length: ' . strlen($compressed));
+
+            echo $compressed;
+            exit;
+        }
+
+        // fallback: kirim JSON biasa
+        header('Content-Type: application/json');
+        echo $geojson;
+        exit;
     }
 
     /**
-     * Callback untuk menyimpan pengaturan peta (path file & keys).
+     * Callback untuk menyimpan pengaturan peta (path file & keys). 
      */
     public function handle_process_maps(WP_REST_Request $request)
     {

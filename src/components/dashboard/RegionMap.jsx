@@ -3,7 +3,7 @@ import * as d3 from 'd3';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
-function RegionMap({ className, geojsonUrl, aggregatedData, idKey, nameKey, onRegionClick, filterByCode, filterKey, districtId = null, districtKey = null, luarDaerahCount }) {
+function RegionMap({ className, geojsonUrl, aggregatedData, idKey, nameKey, onRegionClick, filterByCode, filterKey, districtId = null, districtKey = null, luarDaerahCount, onMapLoaded }) {
     const svgRef = useRef(null);
     const containerRef = useRef(null);
     const [tooltip, setTooltip] = useState({ visible: false, content: '', x: 0, y: 0 });
@@ -125,17 +125,21 @@ function RegionMap({ className, geojsonUrl, aggregatedData, idKey, nameKey, onRe
                     .selectAll('text').style('font-size', '10px');
             }
 
+        }).then(() => {
+            if (typeof onMapLoaded === 'function') {
+                onMapLoaded();
+            }
         }).catch(err => console.error("Gagal memuat GeoJSON:", err));
 
     }, [geojsonUrl, aggregatedData, idKey, nameKey, onRegionClick, filterByCode, filterKey, luarDaerahCount]);
     return (
         <TooltipProvider>
-            <div 
-                ref={containerRef} 
+            <div
+                ref={containerRef}
                 className={cn("w-full h-full relative", className)}
             >
                 <svg ref={svgRef} className="w-full h-full" />
-                
+
                 <Tooltip open={tooltip.visible}>
                     <TooltipTrigger asChild>
                         <div style={{ position: 'fixed', top: tooltip.y, left: tooltip.x, pointerEvents: 'none' }} />

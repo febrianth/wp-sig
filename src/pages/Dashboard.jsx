@@ -12,9 +12,11 @@ import { PlusCircle } from 'lucide-react';
 import { generateColumns } from "./members/columns";
 import { DataTable } from "@/components/custom/DataTable";
 import { useToast } from "@/hooks/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
 
 import RegionMap from '@/components/dashboard/RegionMap';
 import DonutChartCard from '@/components/dashboard/DonutChartCard';
+
 
 function SetupCta() {
     return (
@@ -39,6 +41,8 @@ function Dashboard() {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingMember, setEditingMember] = useState(null);
     const [deletingMember, setDeletingMember] = useState(null);
+    const [isMapLoading, setIsMapLoading] = useState(true);
+
     const thresholds = settings?.badge_thresholds || { gold: 3, silver: 2, bronze: 1 };
 
     const { toast } = useToast();
@@ -54,12 +58,12 @@ function Dashboard() {
             ]);
             const settingsData = await settingsRes.json();
             const membersData = await membersRes.json();
-            const eventsData = await eventsRes.json(); 
+            const eventsData = await eventsRes.json();
             setSettings(settingsData);
             setMembers(membersData);
-            setEvents(eventsData); 
-        } catch (error) { 
-            console.error("Gagal mengambil data:", error); 
+            setEvents(eventsData);
+        } catch (error) {
+            console.error("Gagal mengambil data:", error);
         }
         setLoading(false);
     }, []);
@@ -73,12 +77,6 @@ function Dashboard() {
 
         // Use switch (true) for sequential conditional checking (ranges)
         switch (true) {
-            case (typeof count === 'undefined' || count === null || count === 0):
-                // The original logic checked for `!count`, which is true for
-                // undefined, null, 0, and false. Assuming you meant for new/no events.
-                badgedata = { text: 'New', classname: 'bg-white' };
-                break;
-
             case (count >= thresholds.gold):
                 badgedata = { text: 'Gold', classname: 'bg-amber-400' };
                 break;
@@ -92,8 +90,7 @@ function Dashboard() {
                 break;
 
             default:
-                // Fallback for counts that don't meet any criteria (e.g., negative numbers)
-                badgedata = null;
+                badgedata = { text: 'New', classname: 'bg-white' };
                 break;
         }
 
@@ -137,19 +134,24 @@ function Dashboard() {
     }, [members, settings, view.level]);
 
     const handleRegionClick = (clickedCode) => {
+        if (isMapLoading) return;
+        setIsMapLoading(true);
+
         if (view.level === 'regency') {
             setView({ level: 'district', code: clickedCode, parentCode: null });
         }
-        if (view.level === 'district') {
+        else if (view.level === 'district') {
             setView({ level: 'village', code: clickedCode, parentCode: view.code });
         }
     };
 
     const handleGoBack = () => {
+        if (isMapLoading) return;
+        setIsMapLoading(true);
+
         if (view.level === 'village') {
             setView({ level: 'district', code: view.parentCode, parentCode: null });
-        }
-        if (view.level === 'district') {
+        } else if (view.level === 'district') {
             setView({ level: 'regency', code: null, parentCode: null });
         }
     };
@@ -287,7 +289,11 @@ function Dashboard() {
                                     </div>
                                     <div>
                                         {view.level !== 'regency' && (
-                                            <Button onClick={handleGoBack} variant="outline">
+                                            <Button 
+                                                onClick={handleGoBack} 
+                                                variant="outline"
+                                                disabled={isMapLoading}
+                                            >
                                                 <ArrowLeft className="mr-2 h-4 w-4" />
                                                 {view.level === 'district' ? `Kembali ke Peta Kabupaten` : `Kembali ke Peta Kecamatan`}
                                             </Button>
@@ -297,13 +303,56 @@ function Dashboard() {
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="flex-grow relative">
+                            {isMapLoading ? (
+                                <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-background/90 to-background/70 backdrop-blur-sm z-20">
+                                    <div className="relative w-[90%] h-[500px] rounded-xl overflow-hidden shadow-lg">
+                                        {/* Efek shimmer (gradasi bergerak) */}
+                                        <div className="absolute inset-0 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 animate-[shimmer_1.5s_infinite] bg-[length:200%_100%]" />
+                                        <div className="absolute inset-0 border border-gray-300/30 rounded-xl"></div>
+
+                                        {/* Placeholder untuk elemen peta */}
+                                        <div className="absolute bottom-0 left-0 right-0 p-4 flex justify-between">
+                                            <div className="h-6 w-32 bg-gray-300/60 rounded-md"></div>
+                                            <div className="h-6 w-16 bg-gray-300/60 rounded-md"></div>
+                                        </div>
+                                    </div>
+
+                                    <p className="mt-6 text-sm text-muted-foreground flex items-center gap-2">
+                                        <svg
+                                            className="animate-spin h-4 w-4 text-primary"
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            fill="none"
+                                            viewBox="0 0 24 24"
+                                        >
+                                            <circle
+                                                className="opacity-25"
+                                                cx="12"
+                                                cy="12"
+                                                r="10"
+                                                stroke="currentColor"
+                                                strokeWidth="4"
+                                            ></circle>
+                                            <path
+                                                className="opacity-75"
+                                                fill="currentColor"
+                                                d="M4 12a8 8 0 018-8v8z"
+                                            ></path>
+                                        </svg>
+                                        Memuat peta, mohon tunggu sebentar...
+                                    </p>
+                                </div>
+                            ) : null}
+
                             <RegionMap
                                 {...mapProps}
                                 aggregatedData={aggregatedData}
-                                className="h-[550px]"
+                                onRegionClick={handleRegionClick}
+                                onMapLoaded={() => setIsMapLoading(false)}
+                                className={`h-[550px] transition-opacity duration-300 ${isMapLoading ? 'opacity-0' : 'opacity-100'}`}
                                 luarDaerahCount={luarDaerahCount}
                             />
                         </CardContent>
+
                     </Card>
                 </div>
 

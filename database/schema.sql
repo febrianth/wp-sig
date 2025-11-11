@@ -42,3 +42,13 @@ CREATE TABLE `%%PREFIX%%sig_member_events` (
     INDEX `member_id_index` (`member_id`),
     INDEX `event_id_index` (`event_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `%%PREFIX%%sig_geojson_datasets` (
+     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    type ENUM('district', 'village') NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    geojson LONGTEXT NOT NULL,
+    uploaded_by BIGINT UNSIGNED DEFAULT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
