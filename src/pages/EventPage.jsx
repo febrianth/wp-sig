@@ -31,34 +31,91 @@ function PendingMembersTable({ settings, members, onStatusChange, isUpdatingId }
                             <TableRow>
                                 <TableHead>Nama</TableHead>
                                 <TableHead>Wilayah</TableHead>
+                                <TableHead>Status</TableHead>
                                 <TableHead className="text-right">Aksi</TableHead>
                             </TableRow>
                         </TableHeader>
+
                         <TableBody>
                             {members.length > 0 ? (
-                                members.map((member) => (
-                                    <TableRow key={member.id}>
-                                        <TableCell>{member.name}<br /><span className="text-xs text-muted-foreground">{member.phone_number}</span></TableCell>
-                                        {member.is_outside_region == 1 ? (
-                                            <TableCell className="text-xs">Dari Luar Daerah</TableCell>
-                                        ) : (
-                                            <TableCell className="text-xs">{getRegionName(member.district_id, member.village_id)}</TableCell>
-                                        )}
-                                        <TableCell className="text-right">
-                                            <Button variant="ghost" size="icon" className="bg-red-200 h-8 w-8 mr-1"
-                                                disabled={isUpdatingId === member.id}
-                                                onClick={() => onStatusChange(member.id, 'rejected')}>
-                                                <ThumbsDown className="h-4 w-4" />
-                                            </Button>
-                                            <Button variant="ghost" size="icon" className="bg-green-200 h-8 w-8"
-                                                disabled={isUpdatingId === member.id}
-                                                onClick={() => onStatusChange(member.id, 'verified')}>
-                                                <UserCheck className="h-4 w-4" />
-                                            </Button>
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            ) : (<TableRow><TableCell colSpan={3} className="text-center">Tidak ada peserta baru.</TableCell></TableRow>)}
+                                members.map((member) => {
+
+                                    const renderStatusBadge = () => {
+                                        if (member.status === "pending")
+                                            return <span className="px-2 py-1 text-xs bg-yellow-200 text-yellow-800 rounded-full">Pending</span>;
+
+                                        if (member.status === "verified")
+                                            return <span className="px-2 py-1 text-xs bg-green-200 text-green-800 rounded-full">Terverifikasi</span>;
+
+                                        if (member.status === "rejected")
+                                            return <span className="px-2 py-1 text-xs bg-red-200 text-red-800 rounded-full">Ditolak</span>;
+
+                                        return <span className="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded-full">Unknown</span>;
+                                    };
+
+                                    return (
+                                        <TableRow key={member.id}>
+                                            <TableCell>
+                                                {member.name}
+                                                <br />
+                                                <span className="text-xs text-muted-foreground">
+                                                    {member.phone_number}
+                                                </span>
+                                            </TableCell>
+
+                                            {member.is_outside_region == 1 ? (
+                                                <TableCell className="text-xs">Dari Luar Daerah</TableCell>
+                                            ) : (
+                                                <TableCell className="text-xs">
+                                                    {getRegionName(member.district_id, member.village_id)}
+                                                </TableCell>
+                                            )}
+
+                                            {/* Kolom Status */}
+                                            <TableCell>
+                                                {renderStatusBadge()}
+                                            </TableCell>
+
+                                            {/* Kolom Aksi */}
+                                            <TableCell className="text-right flex justify-end items-center gap-2">
+
+                                                {/* Tombol REJECT: hanya muncul jika status pending */}
+                                                {member.status === "pending" && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="bg-red-200 h-8 w-8"
+                                                        disabled={isUpdatingId === member.id}
+                                                        onClick={() => onStatusChange(member.id, 'rejected')}
+                                                    >
+                                                        <ThumbsDown className="h-4 w-4" />
+                                                    </Button>
+                                                )}
+
+                                                {/* Tombol APPROVE: muncul kalau status pending ATAU rejected */}
+                                                {(member.status === "pending" || member.status === "rejected") && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="bg-green-200 h-8 w-8"
+                                                        disabled={isUpdatingId === member.id}
+                                                        onClick={() => onStatusChange(member.id, 'verified')}
+                                                    >
+                                                        <UserCheck className="h-4 w-4" />
+                                                    </Button>
+                                                )}
+
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })
+                            ) : (
+                                <TableRow>
+                                    <TableCell colSpan={4} className="text-center">
+                                        Tidak ada peserta baru.
+                                    </TableCell>
+                                </TableRow>
+                            )}
                         </TableBody>
                     </Table>
                 </div>
@@ -88,35 +145,88 @@ function PendingAttendancesTable({ settings, attendances, onStatusChange, isUpda
                             <TableRow>
                                 <TableHead>Nama</TableHead>
                                 <TableHead>Wilayah</TableHead>
+                                <TableHead>Status</TableHead>
                                 <TableHead className="text-right">Aksi</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {attendances.length > 0 ? (
-                                attendances.map((member) => (
-                                    <TableRow key={member.id}>
-                                        <TableCell>{member.name}<br /><span className="text-xs text-muted-foreground">{member.phone_number}</span></TableCell>
-                                        {member.is_outside_region == 1 ? (
-                                            <TableCell className="text-xs">Dari Luar Daerah</TableCell>
-                                        ) : (
-                                            <TableCell className="text-xs">{getRegionName(member.district_id, member.village_id)}</TableCell>
-                                        )}
-                                        <TableCell className="text-right">
-                                            <Button variant="ghost" size="icon" className="bg-red-200 h-8 w-8 mr-1"
-                                                disabled={isUpdatingId === member.id}
-                                                onClick={() => onStatusChange(member.id, 'rejected')}>
-                                                <ThumbsDown className="h-4 w-4" />
-                                            </Button>
-                                            <Button variant="ghost" size="icon" className="bg-green-200 h-8 w-8"
-                                                disabled={isUpdatingId === member.id}
-                                                onClick={() => onStatusChange(member.id, 'verified')}>
-                                                <UserCheck className="h-4 w-4" />
-                                            </Button>
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            ) : (<TableRow><TableCell colSpan={3} className="text-center">Tidak ada peserta baru.</TableCell></TableRow>)}
+                                attendances.map((member) => {
+
+                                    const renderStatusBadge = () => {
+                                        if (member.status === "pending")
+                                            return <span className="px-2 py-1 text-xs bg-yellow-200 text-yellow-800 rounded-full">Pending</span>;
+
+                                        if (member.status === "verified")
+                                            return <span className="px-2 py-1 text-xs bg-green-200 text-green-800 rounded-full">Terverifikasi</span>;
+
+                                        if (member.status === "rejected")
+                                            return <span className="px-2 py-1 text-xs bg-red-200 text-red-800 rounded-full">Ditolak</span>;
+
+                                        return <span className="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded-full">Unknown</span>;
+                                    };
+
+                                    return (
+                                        <TableRow key={member.id}>
+                                            <TableCell>
+                                                {member.name}
+                                                <br />
+                                                <span className="text-xs text-muted-foreground">{member.phone_number}</span>
+                                            </TableCell>
+
+                                            {member.is_outside_region == 1 ? (
+                                                <TableCell className="text-xs">Dari Luar Daerah</TableCell>
+                                            ) : (
+                                                <TableCell className="text-xs">
+                                                    {getRegionName(member.district_id, member.village_id)}
+                                                </TableCell>
+                                            )}
+
+                                            {/* Kolom STATUS */}
+                                            <TableCell>
+                                                {renderStatusBadge()}
+                                            </TableCell>
+
+                                            {/* Kolom Aksi */}
+                                            <TableCell className="text-right flex justify-end items-center gap-2">
+
+                                                {/* Tombol REJECT -> muncul hanya jika pending */}
+                                                {member.status === "pending" && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="bg-red-200 h-8 w-8"
+                                                        disabled={isUpdatingId === member.member_event_id}
+                                                        onClick={() => onStatusChange(member.member_event_id, "rejected")}
+                                                    >
+                                                        <ThumbsDown className="h-4 w-4" />
+                                                    </Button>
+                                                )}
+
+                                                {/* Tombol APPROVE -> muncul jika pending ATAU rejected */}
+                                                {(member.status === "pending" || member.status === "rejected") && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="bg-green-200 h-8 w-8"
+                                                        disabled={isUpdatingId === member.member_event_id}
+                                                        onClick={() => onStatusChange(member.member_event_id, "verified")}
+                                                    >
+                                                        <UserCheck className="h-4 w-4" />
+                                                    </Button>
+                                                )}
+
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })
+                            ) : (
+                                <TableRow>
+                                    <TableCell colSpan={4} className="text-center">Tidak ada peserta baru.</TableCell>
+                                </TableRow>
+                            )}
                         </TableBody>
+
                     </Table>
                 </div>
             </CardContent>
@@ -437,19 +547,22 @@ function EventPage() {
 
                                     <AlertDialog>
                                         <AlertDialogTrigger asChild>
-                                            <div className="flex justify-between w-full">
-                                                <Button disabled={isFinishing}>
-                                                    <CheckCircle/>
+                                            <div className="flex flex-col sm:flex-row gap-2 w-full">
+
+                                                <Button disabled={isFinishing} className="w-full sm:w-auto">
+                                                    <CheckCircle />
                                                     {isFinishing ? 'Memproses...' : 'Selesaikan Event & Setujui Peserta'}
                                                 </Button>
 
                                                 <Button
                                                     onClick={handleReload}
                                                     disabled={isReloading}
+                                                    className="w-full sm:w-auto"
                                                 >
                                                     <RefreshCw className="mr-2 h-4 w-4" />
                                                     {isReloading ? "Memuat..." : "Reload Data Peserta"}
                                                 </Button>
+
                                             </div>
                                         </AlertDialogTrigger>
                                         <AlertDialogContent>

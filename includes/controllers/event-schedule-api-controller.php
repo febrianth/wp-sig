@@ -65,7 +65,7 @@ class EventScheduleApiController {
         $member_event_id = $params['member_event_id'] ?? null;
         $status = $params['status'] ?? null;
 
-        if (!$member_event_id || !$status) {
+        if (!$member_event_id || !$status) { 
             return new WP_Error('missing_params', 'ID pendaftaran atau status tidak ada.', ['status' => 400]);
         }
         
@@ -100,12 +100,17 @@ class EventScheduleApiController {
         }
         
         // Cek status member
-        $member_data = $this->member_service->get_by_id($member_id);
+        $member_data = $this->member_service->get_by_id($member_id); 
         if (!$member_data) {
             return new WP_Error('not_found', 'Peserta tidak ditemukan.', ['status' => 404]);
         }
         if ($member_data['status'] !== 'verified') {
             return new WP_Error('not_verified', 'Peserta ini belum diverifikasi oleh admin.', ['status' => 403]);
+        }
+
+        $check_double_checkin = $this->member_service->check_double_checkin($member_id, $event_id);
+        if ($check_double_checkin == true) {
+            return new WP_Error('already_checked_in', 'Anda sudah melakukan check-in untuk event ini.', ['status' => 409]);
         }
 
         // Jika lolos, catat kehadiran sebagai 'pending'

@@ -109,7 +109,7 @@ class EventService
                 "
                 SELECT *
                 FROM {$members_table}
-                WHERE status = 'pending'
+                WHERE status IN ('pending', 'rejected') 
                   AND deleted_at IS NULL
                 ORDER BY created_at DESC",
                 ARRAY_A

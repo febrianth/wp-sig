@@ -285,7 +285,7 @@ function Dashboard() {
                             <CardDescription>
                                 <div className="flex justify-between items-center">
                                     <div>
-                                        {view.code ? `Total ${filteredMembers.length} member.` : `Total ${members.length} member.`}
+                                        {view.code ? `Total ${filteredMembers.length} Peserta.` : `Total ${members.length} Peserta.`}
                                     </div>
                                     <div>
                                         {view.level !== 'regency' && (
@@ -372,7 +372,7 @@ function Dashboard() {
                     <div>
                         <h2 className="text-2xl font-bold">Manajemen Peserta</h2>
                         <p className="text-muted-foreground">
-                            {view.code ? `Menampilkan ${filteredMembers.length} member untuk wilayah terpilih.` : `Menampilkan total ${members.length} member.`}
+                            {view.code ? `Menampilkan ${filteredMembers.length} Peserta untuk wilayah terpilih.` : `Menampilkan total ${members.length} Peserta.`}
                         </p>
                     </div>
                     <Button onClick={() => { setEditingMember(null); setIsDialogOpen(true); }} disabled={!settings?.map_data}>

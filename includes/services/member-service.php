@@ -136,6 +136,17 @@ class MemberService
         return $result ?: null;
     }
 
+    public function check_double_checkin($member_id, $event_id)
+    {
+        $existing_entry = $this->wpdb->get_var($this->wpdb->prepare(
+            "SELECT id FROM {$this->table_member_events} WHERE member_id = %d AND event_id = %d AND deleted_at IS NULL",
+            $member_id,
+            $event_id
+        ));
+
+        return $existing_entry ? true : false;
+    }
+
     /**
      * Menambahkan catatan partisipasi event untuk seorang member.
      */

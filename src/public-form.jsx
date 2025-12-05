@@ -1,6 +1,6 @@
+import './index.css';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import './index.css'; // Kita gunakan CSS utama untuk styling shadcn
 import RegistrationApp from './components/public/RegistrationApp';
 
 const container = document.getElementById('sig-public-form-root');
