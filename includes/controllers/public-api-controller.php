@@ -2,14 +2,17 @@
 // includes/controllers/PublicApiController.php
 
 require_once WP_SIG_PLUGIN_PATH . 'includes/services/member-service.php';
+require_once WP_SIG_PLUGIN_PATH . 'includes/services/event-service.php';
 
 class PublicApiController
 {
     private $member_service;
+    private $event_service;
 
     public function __construct()
     {
         $this->member_service = new MemberService();
+        $this->event_service = new EventService();
     }
 
     public function register_routes()
@@ -51,11 +54,19 @@ class PublicApiController
             );
         }
 
+        $current_active_valid_event = $this->event_service->get_active_api_form_details_public();
         $data = $request->get_json_params();
         $data['status'] = 'pending';
         $data['event_ids'] = '';
 
-        $result = $this->member_service->create($data);
+        if ($current_active_valid_event['registration_flow_mode'] == 'manual_or_repeat') {
+            // daftar langsung absen
+            $existing_id = $this->member_service->find_or_create($data['name'], $data['phone_number'], $data);
+            $result = $this->member_service->add_event_to_member($existing_id, $current_active_valid_event['id'], 'pending');
+        } else if ($current_active_valid_event['registration_flow_mode'] == 'qr_once') {
+            // daftar doang, absen seterusnya via QR
+            $result = $this->member_service->create($data);
+        }
 
         if (is_wp_error($result)) {
             $status = $result->get_error_data()['status'] ?? 400;
@@ -64,7 +75,8 @@ class PublicApiController
 
         return new WP_REST_Response([
             'message' => 'Registrasi berhasil!',
-            'member_id' => $result
+            'member_id' => $result,
+            'registration_flow_mode' => $current_active_valid_event['registration_flow_mode']
         ], 201);
     }
 }

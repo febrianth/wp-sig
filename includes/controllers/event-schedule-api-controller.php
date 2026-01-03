@@ -1,15 +1,17 @@
 <?php
-// Pastikan path ke service Anda benar
 require_once WP_SIG_PLUGIN_PATH . 'includes/services/event-service.php';
+require_once WP_SIG_PLUGIN_PATH . 'includes/services/setting-service.php';
 
 class EventScheduleApiController {
 
     private $event_service;
     private $member_service;
+    private $settings_service;
 
     public function __construct() {
         $this->event_service = new EventService();
         $this->member_service = new MemberService();
+        $this->settings_service = new SettingsService();
     }
 
     public function register_routes() {
@@ -17,6 +19,13 @@ class EventScheduleApiController {
         register_rest_route('sig/v1', '/event-schedule', [
             'methods'             => 'GET',
             'callback'            => [$this, 'get_active_event_details'],
+            'permission_callback' => [$this, 'get_active_event_details_public'],
+        ]);
+
+        // Endpoint untuk MENGAMBIL data publik
+        register_rest_route('sig/v1', '/event-schedule-public', [
+            'methods'             => 'GET',
+            'callback'            => [$this, 'get_active_event_details_public'],
             'permission_callback' => '__return_true',
         ]);
 
@@ -125,7 +134,16 @@ class EventScheduleApiController {
         $member_id = $params['member_id'] ?? null;
         $status = $params['status'] ?? 'verified'; // 'verified' atau 'rejected'
 
-        $result = $this->event_service->update_member_status($member_id, $status);
+        $current_settings = $this->settings_service->get_settings();
+        if ($current_settings['registration_flow_mode'] == 'manual_or_repeat') {
+            // update status & checkin langsung
+            $result = $this->event_service->update_member_and_checkin_status($member_id, $status);
+            
+        } else if ($current_settings['registration_flow_mode'] == 'qr_code_once') {
+            // update status member saja
+            $result = $this->event_service->update_member_status($member_id, $status);
+        }
+
         if (is_wp_error($result)) return $result;
         
         $new_data = $this->event_service->get_active_api_form_details();
@@ -134,6 +152,11 @@ class EventScheduleApiController {
 
     public function get_active_event_details(WP_REST_Request $request) {
         $data = $this->event_service->get_active_api_form_details();
+        return new WP_REST_Response($data, 200);
+    }
+
+    public function get_active_event_details_public(WP_REST_Request $request) {
+        $data = $this->event_service->get_active_api_form_details_public();
         return new WP_REST_Response($data, 200);
     }
 

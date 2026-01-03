@@ -16,7 +16,7 @@ function RegistrationForm({ onSuccess }) {
         name: '',
         phone_number: '',
         full_address: '',
-        is_outside_region: 0, 
+        is_outside_region: 0,
         district_id: '',
         village_id: '',
     });
@@ -45,7 +45,12 @@ function RegistrationForm({ onSuccess }) {
                 setVillages(villageOptions);
 
                 // Ambil data event aktif
-                const eventRes = await fetch(sig_public_data.api_url + 'event-schedule', { headers: { 'X-WP-Nonce': sig_public_data.nonce } });
+                const eventRes = await fetch(
+                    sig_public_data.api_url + 'event-schedule-public',
+                    {
+                        headers: { 'X-WP-Nonce': sig_public_data.nonce }
+                    }
+                );
                 const eventText = await eventRes.text();
                 const eventData = eventText ? JSON.parse(eventText) : null;
                 setActiveEvent(eventData); // Simpan event (bisa null)
@@ -75,7 +80,7 @@ function RegistrationForm({ onSuccess }) {
         );
     }
 
-     const handleOutsideRegionChange = (checked) => {
+    const handleOutsideRegionChange = (checked) => {
         const newValue = checked ? 1 : 0;
         setFormData((prev) => ({
             ...prev,
@@ -141,7 +146,18 @@ function RegistrationForm({ onSuccess }) {
         <Card className="max-w-lg mx-auto bg-[linear-gradient(to_right,#8080804D_1px,transparent_1px),linear-gradient(to_bottom,#80808090_1px,transparent_1px)] [background-size:40px_40px] bg-secondary-background">
             <CardHeader>
                 <CardTitle>Formulir Registrasi Event</CardTitle>
-                <CardDescription>Anda sedang mendaftar untuk event: <strong>{activeEvent.event_name}</strong></CardDescription>
+
+                <CardDescription>
+                    {activeEvent?.registration_flow_mode === 'qr_once' && (
+                        <>Silakan melakukan pendaftaran untuk mendapatkan QR Code.
+                            QR Code ini akan digunakan untuk absensi pada Event.</>
+                    )}
+
+                    {activeEvent?.registration_flow_mode === 'manual_or_repeat' && (
+                        <>Anda sedang mendaftar dan melakukan absensi untuk event:{" "}
+                            <br/><strong>{activeEvent.event_name}</strong></>
+                    )}
+                </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
                 {/* Tampilkan Countdown */}
@@ -161,7 +177,7 @@ function RegistrationForm({ onSuccess }) {
                         <Label htmlFor="full_address">Alamat Lengkap</Label>
                         <Textarea id="full_address" onChange={handleChange} />
                     </div>
-                     <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-2">
                         <Checkbox
                             id="is_outside_region"
                             checked={!!formData.is_outside_region}

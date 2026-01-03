@@ -4,12 +4,35 @@ import { Button } from '@/components/ui/button';
 import DonutChart from "@/components/dashboard/DonutChart";
 import * as d3 from 'd3';
 import { cn } from '@/lib/utils';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 // ============================
 // Hierarchical Bar Chart
 // ============================
 function HierarchicalBarChart({ data }) {
     const ref = useRef();
+    const [tooltip, setTooltip] = useState({ visible: false, content: '', x: 0, y: 0 });
+
+    const showTooltip = (event, d) => {
+        setTooltip({
+            visible: true,
+            content: `${d.label} | ${d.value} peserta`,
+            x: event.pageX + 12,
+            y: event.pageY - 12,
+        });
+    };
+
+    const moveTooltip = (event) => {
+        setTooltip((prev) => ({
+            ...prev,
+            x: event.pageX + 12,
+            y: event.pageY - 12,
+        }));
+    };
+
+    const hideTooltip = () => {
+        setTooltip((prev) => ({ ...prev, visible: false }));
+    };
 
     useEffect(() => {
         if (!data || data.length === 0) return;
@@ -22,10 +45,9 @@ function HierarchicalBarChart({ data }) {
         const width = containerWidth;
         const barHeight = 32;
 
-        // Margin kiri lebih kecil di mobile
         const margin = {
             top: 20,
-            right: 20,
+            right: 40,
             bottom: 20,
             left: width < 400 ? 110 : 160,
         };
@@ -68,7 +90,18 @@ function HierarchicalBarChart({ data }) {
             .attr("height", barHeight - 8)
             .attr("width", (d) => x(d.value))
             .attr("fill", (_, i) => d3.schemeCategory10[i % 10])
-            .attr("rx", 6);
+            .attr("rx", 6)
+            .style("cursor", "pointer")
+            .on("mouseenter", function (event, d) {
+                d3.select(this).attr("opacity", 0.8);
+                showTooltip(event, d);
+            })
+            .on("mousemove", moveTooltip)
+            .on("mouseleave", function () {
+                d3.select(this).attr("opacity", 1);
+                hideTooltip();
+            });
+
 
         // Value labels
         g.selectAll("text.value")
@@ -85,24 +118,48 @@ function HierarchicalBarChart({ data }) {
         svg.append("g")
             .attr("transform", `translate(10, ${margin.top})`)
             .selectAll("text.label")
-            .data(labels)
+            .data(data)
             .enter()
             .append("text")
             .attr("class", "label")
             .attr("y", (_, i) => i * barHeight + 18)
-            .text((d) => d)
+            .text((d) => truncateText(d.label))
             .style("font-size", "12px")
-            .style("fill", "#333");
-
+            .style("fill", "#333")
+            .style("cursor", "pointer")
+            .on("mouseenter", function (event, d) {
+                d3.select(this).style("font-weight", "bold");
+                showTooltip(event, d);
+            })
+            .on("mousemove", moveTooltip)
+            .on("mouseleave", function () {
+                d3.select(this).style("font-weight", "normal");
+                hideTooltip();
+            });
     }, [data]);
 
     return (
         <div className="w-full overflow-x-auto">
             <svg ref={ref} className="min-w-[360px]" />
+            {tooltip.visible && (
+                <div
+                    className="
+                        fixed z-50
+                        border-2 border-black
+                        bg-blue-300
+                        px-3 py-1
+                        text-sm font-bold
+                        shadow-[4px_4px_0px_0px_black]
+                        pointer-events-none
+                        "
+                    style={{ left: tooltip.x, top: tooltip.y }}
+                >
+                    {tooltip.content}
+                </div>
+            )}
         </div>
     );
 }
-
 
 // ======================================================
 // MAIN CARD COMPONENT (Events = Bar Chart, Badges = Donut)

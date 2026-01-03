@@ -1,5 +1,5 @@
 <?php
-
+require_once WP_SIG_PLUGIN_PATH . 'includes/services/setting-service.php';
 /**
  * Menangani semua operasi data untuk tabel Events.
  */
@@ -8,11 +8,13 @@ class EventService
 
     private $wpdb;
     private $table_name;
+    private $settings_service;
 
     public function __construct()
     {
         global $wpdb;
         $this->wpdb = $wpdb;
+        $this->settings_service = new SettingsService();
         $this->table_name = $this->wpdb->prefix . 'sig_events';
     }
 
@@ -31,9 +33,8 @@ class EventService
         $end_at = date_format($date_obj, 'Y-m-d 23:59:59');
 
         $existing_id = $this->wpdb->get_var($this->wpdb->prepare(
-            "SELECT id FROM {$this->table_name} WHERE event_name = %s AND DATE(started_at) = %s AND deleted_at IS NULL",
-            $event_name,
-            date_format($date_obj, 'Y-m-d')
+            "SELECT id FROM {$this->table_name} WHERE event_name = %s AND deleted_at IS NULL",
+            $event_name
         ));
 
         if ($existing_id) return (int) $existing_id;
@@ -99,41 +100,72 @@ class EventService
             ),
             ARRAY_A
         );
+        $current_settings = $this->settings_service->get_settings();
 
         if ($event) {
             $members_table = $this->wpdb->prefix . 'sig_members';
             $member_events_table = $this->wpdb->prefix . 'sig_member_events';
 
 
-            $event['pending_members'] = $this->wpdb->get_results(
-                "
-                SELECT *
-                FROM {$members_table}
-                WHERE status IN ('pending', 'rejected') 
-                  AND deleted_at IS NULL
-                ORDER BY created_at DESC",
-                ARRAY_A
-            );
+            if ($current_settings['registration_flow_mode'] == 'qr_once') {
+                $event['pending_members'] = $this->wpdb->get_results("
+                    SELECT *
+                    FROM {$members_table}
+                    WHERE status IN ('pending', 'rejected') 
+                    AND deleted_at IS NULL
+                    ORDER BY created_at DESC",
+                    ARRAY_A
+                );
 
-            $event['pending_attendance'] = $this->wpdb->get_results(
-                $this->wpdb->prepare(
-                    "SELECT 
-                        m.name, m.phone_number, m.district_id, m.village_id, 
-                        me.id as member_event_id, 
-                        me.status 
-                     FROM {$member_events_table} AS me
-                     LEFT JOIN {$members_table} AS m 
-                            ON me.member_id = m.id
-                           AND m.status = 'verified' 
-                     WHERE me.event_id = %d 
-                       AND me.status IN ('pending', 'rejected') 
-                       AND me.deleted_at IS NULL
-                     ORDER BY me.created_at DESC",
-                    $event['id']
-                ),
-                ARRAY_A
-            );
+                $event['pending_attendance'] = $this->wpdb->get_results(
+                    $this->wpdb->prepare("
+                        SELECT 
+                            m.name, m.phone_number, m.district_id, m.village_id, 
+                            me.id as member_event_id, 
+                            me.status 
+                        FROM {$member_events_table} AS me
+                        LEFT JOIN {$members_table} AS m 
+                                ON me.member_id = m.id
+                            AND m.status = 'verified' 
+                        WHERE me.event_id = %d 
+                        AND me.status IN ('pending', 'rejected') 
+                        AND me.deleted_at IS NULL
+                        ORDER BY me.created_at DESC",
+                        $event['id']
+                    ),
+                    ARRAY_A
+                );
+            } else if ($current_settings['registration_flow_mode'] == 'manual_or_repeat') {
+                $event['pending_attendance_manual'] = $this->wpdb->get_results("
+                    SELECT 
+                        m.*,
+                        me.status AS attendance_status
+                    FROM {$members_table} AS m
+                    INNER JOIN {$member_events_table} AS me
+                        ON m.id = me.member_id
+                    WHERE me.event_id = {$event['id']}
+                      AND me.status IN ('pending', 'rejected') 
+                      AND m.deleted_at IS NULL
+                    ORDER BY m.created_at DESC",
+                    ARRAY_A
+                );
+            }
         }
+        return $event;
+    }
+
+    public function get_active_api_form_details_public()
+    {
+        $event = $this->wpdb->get_row(
+            $this->wpdb->prepare(
+                "SELECT * FROM {$this->table_name} WHERE status = 1 AND deleted_at IS NULL LIMIT 1"
+            ),
+            ARRAY_A
+        );
+
+        $current_settings = $this->settings_service->get_settings();
+        $event['registration_flow_mode'] = $current_settings['registration_flow_mode'];
+
         return $event;
     }
 
@@ -157,7 +189,7 @@ class EventService
         return true;
     }
 
-    public function update_member_status($member_event_id, $status)
+    public function update_member_status($member_id, $status)
     {
         // Validasi status untuk keamanan
         $allowed_statuses = ['pending', 'verified', 'rejected'];
@@ -168,12 +200,45 @@ class EventService
         $success = $this->wpdb->update(
             $this->wpdb->prefix . 'sig_members',
             ['status' => $status, 'updated_at' => current_time('mysql', 1)], // Data baru
-            ['id' => $member_event_id] // Kondisi WHERE
+            ['id' => $member_id] // Kondisi WHERE
         );
 
         if ($success === false) {
             return new WP_Error('db_update_error', 'Gagal memperbarui status member.', ['status' => 500]);
         }
+        return true;
+    }
+
+    public function update_member_and_checkin_status($member_id, $status)
+    {
+        // Validasi status untuk keamanan
+        $allowed_statuses = ['pending', 'verified', 'rejected'];
+        if (!in_array($status, $allowed_statuses)) {
+            return new WP_Error('invalid_status', 'Status tidak valid.', ['status' => 400]);
+        }
+
+        $current_event_active = $this->get_active_api_form_details_public();
+
+        $success = $this->wpdb->update(
+            $this->wpdb->prefix . 'sig_members',
+            ['status' => $status, 'updated_at' => current_time('mysql', 1)],
+            ['id' => $member_id]
+        );
+
+        if ($success === false) {
+            return new WP_Error('db_update_error', 'Gagal memperbarui status member.', ['status' => 500]);
+        }
+
+        $success_member_events = $this->wpdb->update(
+            $this->wpdb->prefix . 'sig_member_events',
+            ['status' => $status, 'updated_at' => current_time('mysql', 1)],
+            ['member_id' => $member_id, 'event_id' => $current_event_active['id']]
+        );
+
+        if ($success_member_events === false) {
+            return new WP_Error('db_update_error', 'Gagal memperbarui status kehadiran member.', ['status' => 500]);
+        }
+
         return true;
     }
 

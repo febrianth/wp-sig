@@ -84,19 +84,44 @@ function UsageTipsCard() {
 }
 
 function AttendancePage() {
+    const [settings, setSettings] = useState(null);
     const [activeEvent, setActiveEvent] = useState(null);
     const [loading, setLoading] = useState(true);
     const [isCameraOn, setIsCameraOn] = useState(true);
     const [lastScanned, setLastScanned] = useState('');
     const { toast } = useToast();
 
-    // Ambil data event aktif
     useEffect(() => {
-        fetch(sig_plugin_data.api_url + 'event-schedule', { headers: { 'X-WP-Nonce': sig_plugin_data.nonce } })
-            .then(res => res.text())
-            .then(text => text ? JSON.parse(text) : null)
-            .then(data => {
-                setActiveEvent(data);
+        const headers = {
+            'X-WP-Nonce': sig_plugin_data.nonce,
+        };
+
+        Promise.all([
+            fetch(sig_plugin_data.api_url + 'event-schedule', { headers }),
+            fetch(sig_plugin_data.api_url + 'settings', { headers }),
+        ])
+            .then(async ([eventRes, settingsRes]) => {
+                const eventText = await eventRes.text();
+                const settingsText = await settingsRes.text();
+
+                return {
+                    event: eventText ? JSON.parse(eventText) : null,
+                    settings: settingsText ? JSON.parse(settingsText) : null,
+                };
+            })
+            .then(({ event, settings }) => {
+                setActiveEvent(event);
+                setSettings(settings);
+            })
+            .catch((error) => {
+                console.error('Gagal memuat data:', error);
+                toast({
+                    variant: 'destructive',
+                    title: 'Terjadi kesalahan',
+                    description: 'Gagal memuat data event atau pengaturan.',
+                });
+            })
+            .finally(() => {
                 setLoading(false);
             });
     }, []);
@@ -129,6 +154,22 @@ function AttendancePage() {
                     </CardHeader>
                     <CardContent>
                         <p className="mb-4">Tidak ada event yang sedang dibuka untuk absensi.</p>
+                        <Button asChild><Link to="/make-event">Kembali ke Manajemen Event</Link></Button>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
+
+    if (!settings.registration_flow_mode !== 'qr_code_once') {
+        return (
+            <div className="flex items-center justify-center h-screen">
+                <Card className="max-w-lg bg-[linear-gradient(to_right,#8080804D_1px,transparent_1px),linear-gradient(to_bottom,#80808090_1px,transparent_1px)] [background-size:40px_40px] bg-secondary-background">
+                    <CardHeader>
+                        <CardTitle className="flex items-center text-destructive"><XCircle className="mr-2 h-5 w-5" /> Fitur Tidak Tersedia</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="mb-4">Fitur hanya untuk tipe registrasi Qr Code. tipe registrasi dapat diubah di Pengaturan.</p>
                         <Button asChild><Link to="/make-event">Kembali ke Manajemen Event</Link></Button>
                     </CardContent>
                 </Card>

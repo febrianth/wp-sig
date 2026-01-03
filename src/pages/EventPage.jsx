@@ -124,6 +124,120 @@ function PendingMembersTable({ settings, members, onStatusChange, isUpdatingId }
     );
 }
 
+function PendingAttendanceManual({ settings, members, onStatusChange, isUpdatingId }) {
+    const getRegionName = (districtId, villageId) => {
+        if (!settings?.map_data) return `...`;
+        const district = settings.map_data.districts?.[districtId] || `[${districtId || 'N/A'}]`;
+        const village = settings.map_data.villages?.[villageId]?.name || `[${villageId || 'N/A'}]`;
+        return `${village}, ${district}`;
+    };
+
+    return (
+        <Card >
+            <CardHeader>
+                <CardTitle>Daftar Kehadiran Peserta ({members.length})</CardTitle>
+                <CardDescription>Verifikasi kehadiran peserta.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="border rounded-md max-h-96 overflow-y-auto">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Nama</TableHead>
+                                <TableHead>Wilayah</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead className="text-right">Aksi</TableHead>
+                            </TableRow>
+                        </TableHeader>
+
+                        <TableBody>
+                            {members.length > 0 ? (
+                                members.map((member) => {
+
+                                    const renderStatusBadge = () => {
+                                        if (member.attendance_status === "pending")
+                                            return <span className="px-2 py-1 text-xs bg-yellow-200 text-yellow-800 rounded-full">Pending</span>;
+
+                                        if (member.attendance_status === "verified")
+                                            return <span className="px-2 py-1 text-xs bg-green-200 text-green-800 rounded-full">Terverifikasi</span>;
+
+                                        if (member.attendance_status === "rejected")
+                                            return <span className="px-2 py-1 text-xs bg-red-200 text-red-800 rounded-full">Ditolak</span>;
+
+                                        return <span className="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded-full">Unknown</span>;
+                                    };
+
+                                    return (
+                                        <TableRow key={member.id}>
+                                            <TableCell>
+                                                {member.name}
+                                                <br />
+                                                <span className="text-xs text-muted-foreground">
+                                                    {member.phone_number}
+                                                </span>
+                                            </TableCell>
+
+                                            {member.is_outside_region == 1 ? (
+                                                <TableCell className="text-xs">Dari Luar Daerah</TableCell>
+                                            ) : (
+                                                <TableCell className="text-xs">
+                                                    {getRegionName(member.district_id, member.village_id)}
+                                                </TableCell>
+                                            )}
+
+                                            {/* Kolom Status */}
+                                            <TableCell>
+                                                {renderStatusBadge()}
+                                            </TableCell>
+
+                                            {/* Kolom Aksi */}
+                                            <TableCell className="text-right flex justify-end items-center gap-2">
+
+                                                {/* Tombol REJECT: hanya muncul jika status pending */}
+                                                {member.attendance_status === "pending" && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="bg-red-200 h-8 w-8"
+                                                        disabled={isUpdatingId === member.id}
+                                                        onClick={() => onStatusChange(member.id, 'rejected')}
+                                                    >
+                                                        <ThumbsDown className="h-4 w-4" />
+                                                    </Button>
+                                                )}
+
+                                                {/* Tombol APPROVE: muncul kalau status pending ATAU rejected */}
+                                                {(member.attendance_status === "pending" || member.attendance_status === "rejected") && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="bg-green-200 h-8 w-8"
+                                                        disabled={isUpdatingId === member.id}
+                                                        onClick={() => onStatusChange(member.id, 'verified')}
+                                                    >
+                                                        <UserCheck className="h-4 w-4" />
+                                                    </Button>
+                                                )}
+
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })
+                            ) : (
+                                <TableRow>
+                                    <TableCell colSpan={4} className="text-center">
+                                        Tidak ada peserta baru.
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
 function PendingAttendancesTable({ settings, attendances, onStatusChange, isUpdatingId }) {
     const getRegionName = (districtId, villageId) => {
         if (!settings?.map_data) return `...`;
@@ -536,14 +650,19 @@ function EventPage() {
                                     <CardTitle className="flex items-center">
                                         <CheckCircle className="mr-2 h-5 w-5" /> Status Pendaftaran Aktif
                                     </CardTitle>
-                                    <CardDescription>Event <strong>{activeEvent.event_name}</strong> sedang menerima data. </CardDescription>
+                                    <CardDescription>
+                                        Event <strong>{activeEvent.event_name}</strong> sedang menerima data. <br />
+                                        <strong>Tipe Pendaftaran : {settings.registration_flow_mode == 'qr_code' ? 'QR Code' : 'Manual / Nomor HP'}</strong>
+                                    </CardDescription>
                                 </CardHeader>
                                 <CardContent className="space-y-4">
                                     <CountdownTimer startTime={formData.started_at} endTime={formData.end_at} />
 
-                                    <Button asChild className="w-full">
-                                        <Link to="/absensi"><Camera className="mr-2 h-4 w-4" /> Buka Halaman Absensi</Link>
-                                    </Button>
+                                    {settings.registration_flow_mode == 'qr_code_once' && (
+                                        <Button asChild className="w-full">
+                                            <Link to="/absensi"><Camera className="mr-2 h-4 w-4" /> Buka Halaman Absensi</Link>
+                                        </Button>
+                                    )}
 
                                     <AlertDialog>
                                         <AlertDialogTrigger asChild>
@@ -569,7 +688,7 @@ function EventPage() {
                                             <AlertDialogHeader>
                                                 <AlertDialogTitle>Anda Yakin?</AlertDialogTitle>
                                                 <AlertDialogDescription>
-                                                    Tindakan ini akan menutup event, menyetujui semua peserta 'pending', menutup pendaftaran peserta dan menutup check-in untuk event ini.
+                                                    Tindakan ini akan menutup event, menyetujui semua peserta dan absensi peserta berstatus 'pending'.
                                                 </AlertDialogDescription>
                                             </AlertDialogHeader>
                                             <AlertDialogFooter>
@@ -582,18 +701,31 @@ function EventPage() {
                                 </CardContent>
                             </Card>
 
-                            <PendingMembersTable
-                                settings={settings}
-                                members={activeEvent?.pending_members || []}
-                                onStatusChange={handleMemberVerify}
-                                isUpdatingId={isUpdatingStatus}
-                            />
-                            <PendingAttendancesTable
-                                settings={settings}
-                                attendances={activeEvent.pending_attendance || []}
-                                onStatusChange={handleMemberStatusChange}
-                                isUpdatingId={isUpdatingStatus}
-                            />
+                            {settings.registration_flow_mode == 'qr_code_once' && (
+                                <>
+                                    <PendingMembersTable
+                                        settings={settings}
+                                        members={activeEvent?.pending_members || []}
+                                        onStatusChange={handleMemberVerify}
+                                        isUpdatingId={isUpdatingStatus}
+                                    />
+                                    <PendingAttendancesTable
+                                        settings={settings}
+                                        attendances={activeEvent.pending_attendance || []}
+                                        onStatusChange={handleMemberStatusChange}
+                                        isUpdatingId={isUpdatingStatus}
+                                    />
+                                </>
+                            )}
+
+                            {settings.registration_flow_mode == 'manual_or_repeat' && (
+                                <PendingAttendanceManual
+                                    settings={settings}
+                                    members={activeEvent?.pending_attendance_manual || []}
+                                    onStatusChange={handleMemberVerify}
+                                    isUpdatingId={isUpdatingStatus}
+                                />
+                            )}
                         </>
                     ) : (
                         <>

@@ -318,13 +318,18 @@ class MemberService
     }
 
     /**
-     * Method baru untuk sinkronisasi event (Private).
+     * Method baru untuk sinkronisasi event.
      * Ini menghapus semua event lama dan menambahkan semua event baru dari array.
      */
     private function sync_events(int $member_id, array $event_ids)
     {
+        $now = current_time('mysql', 1);
         // 1. Hapus semua koneksi event yang ada untuk member ini
-        $this->wpdb->delete($this->table_member_events, ['member_id' => $member_id]);
+        $this->wpdb->update(
+            $this->table_member_events,
+            ['deleted_at' => $now],
+            ['member_id' => $member_id] 
+        );
 
         // 2. Tambahkan kembali koneksi untuk event yang baru dipilih
         if (!empty($event_ids)) {
@@ -353,7 +358,6 @@ class MemberService
         );
 
         // 3. Soft delete semua data di tabel member_events
-        // Asumsi nama properti tabel event Anda adalah $this->table_member_events
         $success_events = $this->wpdb->update(
             $this->table_member_events,
             ['deleted_at' => $now],

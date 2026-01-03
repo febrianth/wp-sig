@@ -30,6 +30,7 @@ class SettingsService
             'map_files' => [],
             'map_keys' => [],
             'map_data' => [],
+            'registration_flow_mode' => 'qr_once',
             'badge_thresholds' => [
                 'gold'      => 3,
                 'silver'    => 2,
@@ -126,7 +127,7 @@ class SettingsService
         return $dirs;
     }
 
-    public function process_uploaded_maps($file_urls, $key_mappings, $badge_thresholds)
+    public function process_uploaded_maps($file_urls, $key_mappings, $badge_thresholds, $registration_flow_mode)
     {
         $settings = $this->get_settings();
 
@@ -202,6 +203,7 @@ class SettingsService
         // --- Simpan semua hasil ke settings ---
         $settings['map_files'] = $file_urls;
         $settings['badge_thresholds'] = $badge_thresholds;
+        $settings['registration_flow_mode'] = $registration_flow_mode;
         $settings['map_keys'] = $key_mappings;
         $settings['map_data']['districts'] = $districts;
         $settings['map_data']['villages'] = $villages;
@@ -230,6 +232,12 @@ class SettingsService
             $settings['badge_thresholds']['gold']   = absint($settings['badge_thresholds']['gold'] ?? 3);
             $settings['badge_thresholds']['silver'] = absint($settings['badge_thresholds']['silver'] ?? 2);
             $settings['badge_thresholds']['bronze'] = absint($settings['badge_thresholds']['bronze'] ?? 1);
+        }
+        if (isset($settings['registration_flow_mode'])) {
+            $settings['registration_flow_mode'] = sanitize_text_field($settings['registration_flow_mode']);
+
+            $allowed_modes = ['qr_once', 'manual_or_repeat'];
+            $settings['registration_flow_mode'] = in_array($settings['registration_flow_mode'], $allowed_modes) ? $settings['registration_flow_mode'] : 'qr_once';
         }
 
         return $settings;

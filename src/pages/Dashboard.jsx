@@ -231,7 +231,7 @@ function Dashboard() {
     }
 
     let mapProps = {};
-    let pageTitle = "Visualisasi Peta Kabupaten";
+    let pageTitle = "Visualisasi Peta Daerah";
 
     switch (view.level) {
         case 'district':
@@ -263,7 +263,7 @@ function Dashboard() {
             };
             break;
         default: // 'regency'
-            pageTitle = "Visualisasi Peta Kabupaten";
+            pageTitle = "Visualisasi Peta Daerah";
 
             mapProps = {
                 geojsonUrl: settings.map_files.districts,
@@ -295,7 +295,7 @@ function Dashboard() {
                                                 disabled={isMapLoading}
                                             >
                                                 <ArrowLeft className="mr-2 h-4 w-4" />
-                                                {view.level === 'district' ? `Kembali ke Peta Kabupaten` : `Kembali ke Peta Kecamatan`}
+                                                {view.level === 'district' ? `Kembali ke Peta Daerah` : `Kembali ke Peta Kecamatan`}
                                             </Button>
                                         )}
                                     </div>

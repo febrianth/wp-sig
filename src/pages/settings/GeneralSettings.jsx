@@ -5,6 +5,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+
 // import { KeyRound, RefreshCw, Eye, EyeOff } from 'lucide-react';
 // import {
 //     AlertDialog,
@@ -17,7 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 //     AlertDialogTitle,
 //     AlertDialogTrigger,
 // } from "@/components/ui/alert-dialog";
-// import { cn } from '@/lib/utils';
+// import { cn } from '@/lib/utils'; // apikey tidak jadi
 import { Badge } from "@/components/ui/badge";
 
 function MapUploader({ title, description, fileType, currentUrl, onFileUpload }) {
@@ -178,7 +180,8 @@ function GeneralSettings() {
         },
         badge_thresholds: {
             gold: 3, silver: 2, bronze: 1
-        }
+        },
+        registration_flow_mode:''
     });
 
     const [loading, setLoading] = useState(true);
@@ -196,6 +199,7 @@ function GeneralSettings() {
             const data = await response.json();
             // Gabungkan dengan state default untuk memastikan semua key ada
             setSettings(prev => ({ ...prev, ...data }));
+            console.log(data)
         } catch (error) {
             toast({
                 variant: "destructive",
@@ -252,6 +256,7 @@ function GeneralSettings() {
                     map_files: settings.map_files,
                     map_keys: settings.map_keys,
                     badge_thresholds: settings.badge_thresholds,
+                    registration_flow_mode: settings.registration_flow_mode,
                 }),
             });
             const result = await response.json();
@@ -318,6 +323,59 @@ function GeneralSettings() {
                         isGenerating={isGenerating}
                         onRegenerate={handleRegenerateKey}
                     /> */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Pengaturan Tipe Registrasi Event</CardTitle>
+                            <CardDescription>
+                                Atur bagaimana Peserta dapat melakukan registrasi.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <RadioGroup
+                                value={settings.registration_flow_mode}
+                                onValueChange={(value) =>
+                                    setSettings({
+                                        ...settings,
+                                        registration_flow_mode: value,
+                                    })
+                                }
+                                className="space-y-4"
+                            >
+                                {/* MODE 1 */}
+                                <div className="flex items-start space-x-3 rounded-md border p-4">
+                                    <RadioGroupItem value="qr_once" id="qr_once" />
+                                    <div className="space-y-1">
+                                        <Label htmlFor="qr_once" className="font-heading">
+                                            QR Code – Daftar Sekali, Absen Berulang.
+                                        </Label>
+                                        <p className="text-sm text-muted-foreground">
+                                            Peserta wajib mendaftar terlebih dahulu untuk mendapatkan QR Code.
+                                            Saat Event berlangsung, peserta cukup melakukan absensi dengan
+                                            scan QR Code yang sudah dimiliki.
+                                            <b>Pendaftaran 2 kali akan ditolak oleh sistem.</b>
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* MODE 2 */}
+                                <div className="flex items-start space-x-3 rounded-md border p-4">
+                                    <RadioGroupItem value="manual_or_repeat" id="manual_or_repeat" />
+                                    <div className="space-y-1">
+                                        <Label htmlFor="manual_or_repeat" className="font-heading">
+                                            Manual / Nomor HP – Daftar & Absen berulang.
+                                        </Label>
+                                        <p className="text-sm text-muted-foreground">
+                                            Peserta dapat registrasi dan absensi sekaligus dengan mengisi form pendaftaran. 
+                                            Jika peserta belum terdaftar, sistem akan
+                                            otomatis mendaftarkan peserta dan mencatat absensinya.
+                                            <b>Pendaftaran 2 kali diizinkan, pendaftaran kedua dan seterusnya akan dianggap sebagai absensi.</b>
+                                        </p>
+                                    </div>
+                                </div>
+                            </RadioGroup>
+                        </CardContent>
+                    </Card>
+
                     <Card>
                         <CardHeader>
                             <CardTitle>Pengaturan Peringkat (Badge)</CardTitle>

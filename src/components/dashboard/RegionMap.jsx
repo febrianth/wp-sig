@@ -92,7 +92,7 @@ function RegionMap({ className, geojsonUrl, aggregatedData, idKey, nameKey, onRe
                     }
                     const regionName = d.properties[nameKey];
                     const count = aggregatedData[lookupKey] || 0;
-                    setTooltip({ visible: true, content: `${regionName} Jumlah: ${count}`, x: event.pageX, y: event.pageY });
+                    setTooltip({ visible: true, content: `${regionName} | Jumlah: ${count}`, x: event.pageX, y: event.pageY });
                     d3.select(this).attr('stroke-width', 2.5);
                 })
                 .on('mousemove', (event) => setTooltip(prev => ({ ...prev, x: event.pageX, y: event.pageY })))

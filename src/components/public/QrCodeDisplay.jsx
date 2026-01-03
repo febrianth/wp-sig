@@ -1,11 +1,10 @@
-// src/components/public/QrCodeDisplay.jsx
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { QRCode } from "react-qrcode-logo"; // Library yang lebih baik
+import { QRCode } from "react-qrcode-logo";
 import { CheckCircle } from 'lucide-react';
 
 function QrCodeDisplay({ data }) {
-    const qrValue = JSON.stringify({ id: data.member_id }); // Simpan ID sebagai JSON di QR
+    const qrValue = JSON.stringify({ id: data.member_id });
 
     return (
         <Card className="max-w-md mx-auto">
