@@ -44,6 +44,27 @@ class PublicApiController
             return new WP_Error('rest_forbidden', 'Nonce tidak valid.', ['status' => 401]);
         }
 
+        $data = $request->get_json_params();
+        $data['status'] = 'pending';
+        $data['event_ids'] = '';
+        
+        if (empty($data['name']) || empty($data['phone_number'])) {
+            return new WP_REST_Response(
+                ['message' => 'Nama dan nomor telepon wajib diisi.'],
+                400
+            );
+        }
+
+        if (
+            $data['is_outside_region'] == 0 &&
+            (empty($data['district_id']) || empty($data['village_id']))
+        ) {
+            return new WP_REST_Response(
+                ['message' => 'Data wilayah (kecamatan dan desa) wajib diisi.'],
+                400
+            );
+        }
+
         $validation_result = $this->member_service->validate_active_events();
 
         if (is_wp_error($validation_result)) {
@@ -55,10 +76,7 @@ class PublicApiController
         }
 
         $current_active_valid_event = $this->event_service->get_active_api_form_details_public();
-        $data = $request->get_json_params();
-        $data['status'] = 'pending';
-        $data['event_ids'] = '';
-
+        
         if ($current_active_valid_event['registration_flow_mode'] == 'manual_or_repeat') {
             // daftar langsung absen
             $existing_id = $this->member_service->find_or_create($data['name'], $data['phone_number'], $data);
