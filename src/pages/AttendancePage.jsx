@@ -161,7 +161,7 @@ function AttendancePage() {
         );
     }
 
-    if (!settings.registration_flow_mode !== 'qr_code_once') {
+    if (!settings.registration_flow_mode !== 'qr_once') {
         return (
             <div className="flex items-center justify-center h-screen">
                 <Card className="max-w-lg bg-[linear-gradient(to_right,#8080804D_1px,transparent_1px),linear-gradient(to_bottom,#80808090_1px,transparent_1px)] [background-size:40px_40px] bg-secondary-background">

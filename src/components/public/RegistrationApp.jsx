@@ -7,7 +7,7 @@ function RegistrationApp() {
     // State untuk beralih antara form dan tampilan QR code
     const [registrationData, setRegistrationData] = useState(null);
 
-    if (registrationData && registrationData.registration_flow_mode == 'qr_code_once') {
+    if (registrationData && registrationData.registration_flow_mode == 'qr_once') {
         return (
             <>
                 <QrCodeDisplay data={registrationData} />

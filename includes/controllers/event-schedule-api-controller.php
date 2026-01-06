@@ -139,7 +139,7 @@ class EventScheduleApiController {
             // update status & checkin langsung
             $result = $this->event_service->update_member_and_checkin_status($member_id, $status);
             
-        } else if ($current_settings['registration_flow_mode'] == 'qr_code_once') {
+        } else if ($current_settings['registration_flow_mode'] == 'qr_once') {
             // update status member saja
             $result = $this->event_service->update_member_status($member_id, $status);
         }

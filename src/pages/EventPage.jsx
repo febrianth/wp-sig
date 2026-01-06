@@ -348,27 +348,42 @@ function PendingAttendancesTable({ settings, attendances, onStatusChange, isUpda
     );
 }
 
-function UsageTipsCard() {
+function UsageTipsCard({ registrationFlow }) {
+    // registrationFlow: "qr_once" | "manual_or_repeat"
     return (
-        <Card >
+        <Card>
             <CardHeader>
-                <CardTitle className="flex items-center"><Info className="mr-2 h-5 w-5" /> Tips Penggunaan</CardTitle>
+                <CardTitle className="flex items-center">
+                    <Info className="mr-2 h-5 w-5" /> Tips Penggunaan
+                </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 text-sm text-muted-foreground">
-                <p>
-                    <strong>1. Alur Registrasi:</strong> Buat Halaman WordPress baru dan tambahkan shortcode
-                    <code>[sig_registration_form]</code>. Bagikan link halaman tersebut kepada calon member.
-                </p>
-                <p>
-                    <strong>2. Proses Absensi:</strong> Member yang sudah mendaftar (via form) atau ditambah (via impor/manual) bisa menggunakan QR Code mereka untuk check-in ke event yang sedang Anda buka di halaman ini.
-                </p>
-                <p>
-                    <strong>3. Lupa Barcode:</strong> Jika member lupa QR Code, Anda bisa mencarinya di halaman "Dashboard", ke kolom aksi dan "lihat detail member".
-                </p>
+                {registrationFlow === 'qr_once' ? (
+                    <>
+                        <p><strong>1. Buat Form:</strong> Buat halaman WordPress baru dan tambahkan shortcode <code>[sig_registration_form]</code>, lalu publish dan bagikan tautan ke peserta.</p>
+                        <p><strong>2. Buka Event:</strong> Tentukan tanggal dan jam event.</p>
+                        <p><strong>3. Peserta Daftar:</strong> Peserta mendaftar melalui form. Setelah berhasil, QR Code mereka akan muncul. Peserta disarankan menyimpan QR Code, atau hubungi petugas untuk dicari di dashboard jika lupa.</p>
+                        <p><strong>4. Peserta Absen:</strong> Peserta datang dengan QR Code. Petugas scan QR untuk mencatat kehadiran. Catatan: sebelum bisa absen, peserta baru harus disetujui.</p>
+                        <p><strong>5. Tutup Event:</strong> Event ditutup, form tidak bisa menerima pendaftaran lagi. Peserta pending otomatis disetujui.</p>
+                        <p><strong>6. Kesimpulan:</strong> Peserta daftar sekali, QR Code bisa digunakan untuk absensi berulang tanpa mengisi form lagi.</p>
+                    </>
+                ) : registrationFlow === 'manual_or_repeat' ? (
+                    <>
+                        <p><strong>1. Buat Form:</strong> Buat halaman WordPress baru dan tambahkan shortcode <code>[sig_registration_form]</code>, lalu publish dan bagikan tautan ke peserta.</p>
+                        <p><strong>2. Buka Event:</strong> Tentukan tanggal dan jam event.</p>
+                        <p><strong>3. Peserta Absen:</strong> Peserta datang, peserta mengisi form. Pastikan nomor HP benar, karena sistem akan mencatat sebagai peserta baru jika data berbeda atau typo.</p>
+                        <p><strong>4. Verifikasi Kehadiran:</strong> Setelah form diisi, petugas memverifikasi kehadiran peserta di event aktif.</p>
+                        <p><strong>5. Tutup Event:</strong> Event selesai, form ditutup, semua data kehadiran dianggap final.</p>
+                        <p><strong>6. Kesimpulan:</strong> Peserta bisa daftar atau absen berulang kali menggunakan nomor HP, setiap kali absensi harus diverifikasi.</p>
+                    </>
+                ) : (
+                    <p>Pilih tipe registrasi event untuk melihat tips penggunaan.</p>
+                )}
             </CardContent>
         </Card>
     );
 }
+
 
 function SettingsCta() {
     return (
@@ -638,7 +653,7 @@ function EventPage() {
                         </CardContent>
                     </Card>
 
-                    <UsageTipsCard />
+                    <UsageTipsCard registrationFlow={settings?.registration_flow_mode || 'qr_once'} />
                 </div>
 
                 {/* Kolom Kanan: Status Event Aktif */}
@@ -658,7 +673,7 @@ function EventPage() {
                                 <CardContent className="space-y-4">
                                     <CountdownTimer startTime={formData.started_at} endTime={formData.end_at} />
 
-                                    {settings.registration_flow_mode == 'qr_code_once' && (
+                                    {settings.registration_flow_mode == 'qr_once' && (
                                         <Button asChild className="w-full">
                                             <Link to="/absensi"><Camera className="mr-2 h-4 w-4" /> Buka Halaman Absensi</Link>
                                         </Button>
@@ -701,7 +716,7 @@ function EventPage() {
                                 </CardContent>
                             </Card>
 
-                            {settings.registration_flow_mode == 'qr_code_once' && (
+                            {settings.registration_flow_mode == 'qr_once' && (
                                 <>
                                     <PendingMembersTable
                                         settings={settings}
