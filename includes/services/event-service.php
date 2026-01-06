@@ -164,7 +164,9 @@ class EventService
         );
 
         $current_settings = $this->settings_service->get_settings();
-        $event['registration_flow_mode'] = $current_settings['registration_flow_mode'];
+        if ($event) {
+            $event['registration_flow_mode'] = $current_settings['registration_flow_mode'];
+        }
 
         return $event;
     }

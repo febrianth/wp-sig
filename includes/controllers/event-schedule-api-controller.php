@@ -19,7 +19,7 @@ class EventScheduleApiController {
         register_rest_route('sig/v1', '/event-schedule', [
             'methods'             => 'GET',
             'callback'            => [$this, 'get_active_event_details'],
-            'permission_callback' => [$this, 'get_active_event_details_public'],
+            'permission_callback' => [$this, 'admin_permissions_check'],
         ]);
 
         // Endpoint untuk MENGAMBIL data publik
