@@ -102,11 +102,13 @@ class MemberService
 
         $existing_id = $this->get_by_phone_number($phone_number)['id'] ?? null;
 
+        $data_to_insert = array_merge(['name' => $name, 'phone_number' => $phone_number], $additional_data);
+
         if ($existing_id) {
+            $this->update($existing_id, $data_to_insert);
             return (int) $existing_id;
         }
 
-        $data_to_insert = array_merge(['name' => $name, 'phone_number' => $phone_number], $additional_data);
         $success = $this->create($data_to_insert);
 
         return $success ? $this->wpdb->insert_id : false;
@@ -251,18 +253,26 @@ class MemberService
             ); // 409 Conflict
         }
         
-        if (!empty($data['is_outside_region'])) {
+        if ($data['is_outside_region'] == 1) {
             $data['district_id'] = null;
             $data['village_id'] = null;
+        } else {
+            if (empty($data['district_id']) || empty($data['village_id'])) {
+                return new WP_Error(
+                    'missing_region_data',
+                    'Data wilayah (kecamatan dan desa) wajib diisi untuk peserta dari dalam wilayah.',
+                    ['status' => 400]
+                );
+            }
         }
 
         $formatted_data = [
-            'name'         => $name,
-            'phone_number' => $phone_number,
-            'status'       => $status,
-            'full_address' => sanitize_textarea_field($data['full_address']),
-            'district_id'  => sanitize_text_field($data['district_id']),
-            'village_id'   => sanitize_text_field($data['village_id']),
+            'name'                => $name,
+            'phone_number'        => $phone_number,
+            'status'              => $status,
+            'full_address'        => sanitize_textarea_field($data['full_address']),
+            'district_id'         => sanitize_text_field($data['district_id']),
+            'village_id'          => sanitize_text_field($data['village_id']),
             'is_outside_region'   => sanitize_text_field($data['is_outside_region']),
         ];
 
@@ -271,7 +281,7 @@ class MemberService
             return new WP_Error('db_insert_error', 'Gagal menyimpan data ke database.', ['status' => 500]);
         }
 
-        // 3. Sinkronkan (hapus semua yang lama, tambah semua yang baru)
+        // Sinkronkan (hapus semua yang lama, tambah semua yang baru)
         if (!empty($data['event_ids'])) {
             $this->sync_events($this->wpdb->insert_id, $data['event_ids']);
         }
@@ -283,22 +293,29 @@ class MemberService
      */
     public function update(int $id, array $data)
     {
-        // 1. Pisahkan data member dari data event
+        // Pisahkan data member dari data event
         $event_ids = $data['event_ids'] ?? [];
         unset($data['event_ids']); // Hapus dari array data member
 
-        if (!empty($data['is_outside_region'])) {
+        if ($data['is_outside_region'] == 1) {
             $data['district_id'] = null;
             $data['village_id'] = null;
+        } else {
+            if (empty($data['district_id']) || empty($data['village_id'])) {
+                return new WP_Error(
+                    'missing_region_data',
+                    'Data wilayah (kecamatan dan desa) wajib diisi untuk peserta dari dalam wilayah.',
+                    ['status' => 400]
+                );
+            }
         }
 
         // 2. Sanitasi data member
         $formatted_data = [
-            'name'         => sanitize_text_field($data['name']),
-            'full_address' => sanitize_textarea_field($data['full_address']),
-            'phone_number' => sanitize_text_field($data['phone_number']),
-            'district_id'  => sanitize_text_field($data['district_id']),
-            'village_id'   => sanitize_text_field($data['village_id']),
+            'name'                => sanitize_text_field($data['name']),
+            'full_address'        => sanitize_textarea_field($data['full_address']),
+            'district_id'         => sanitize_text_field($data['district_id']),
+            'village_id'          => sanitize_text_field($data['village_id']),
             'is_outside_region'   => sanitize_text_field($data['is_outside_region']),
         ];
 
@@ -311,14 +328,15 @@ class MemberService
             );
         }
 
-        // 3. Sinkronkan (hapus semua yang lama, tambah semua yang baru)
-        $this->sync_events($id, $event_ids);
+        // Sinkronkan (hapus semua yang lama, tambah semua yang baru)
+        if (!empty($event_ids)) {
+            $this->sync_events($id, $event_ids);
+        }
 
         return true;
     }
 
     /**
-     * Method baru untuk sinkronisasi event.
      * Ini menghapus semua event lama dan menambahkan semua event baru dari array.
      */
     private function sync_events(int $member_id, array $event_ids)

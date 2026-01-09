@@ -1,5 +1,4 @@
 <?php
-// includes/controllers/PublicApiController.php
 
 require_once WP_SIG_PLUGIN_PATH . 'includes/services/member-service.php';
 require_once WP_SIG_PLUGIN_PATH . 'includes/services/event-service.php';
