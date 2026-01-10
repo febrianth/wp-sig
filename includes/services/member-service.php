@@ -315,6 +315,7 @@ class MemberService
             'name'                => sanitize_text_field($data['name']),
             'full_address'        => sanitize_textarea_field($data['full_address']),
             'district_id'         => sanitize_text_field($data['district_id']),
+            'phone_number'        => sanitize_text_field($data['phone_number']),
             'village_id'          => sanitize_text_field($data['village_id']),
             'is_outside_region'   => sanitize_text_field($data['is_outside_region']),
         ];
