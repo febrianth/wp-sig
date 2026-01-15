@@ -685,7 +685,7 @@ function EventPage() {
 
                                                 <Button disabled={isFinishing} className="w-full sm:w-auto">
                                                     <CheckCircle />
-                                                    {isFinishing ? 'Memproses...' : 'Selesaikan Event & Setujui Peserta'}
+                                                    {isFinishing ? 'Memproses...' : 'Akhiri Event'}
                                                 </Button>
 
                                                 <Button

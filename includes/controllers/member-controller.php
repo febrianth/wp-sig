@@ -26,6 +26,25 @@ class MemberApiController
             'permission_callback' => [$this, 'admin_permissions_check'],
         ]);
 
+        register_rest_route('sig/v1', '/members/summary', [
+            'methods'  => 'GET',
+            'callback' => [$this, 'handle_get_member_summary'],
+            'permission_callback' => [$this, 'admin_permissions_check'],
+        ]);
+
+        register_rest_route('sig/v1', '/analysis/events', [
+            'methods' => 'GET',
+            'callback' => [$this, 'handle_analysis_events'],
+            // 'permission_callback' => [$this, 'admin_permissions_check'],
+        ]);
+
+        register_rest_route('sig/v1', '/analysis/badges', [
+            'methods' => 'GET',
+            'callback' => [$this, 'handle_analysis_badges'],
+            'permission_callback' => [$this, 'admin_permissions_check'],
+        ]);
+
+
         // Rute untuk satu member (Update & Delete)
         register_rest_route('sig/v1', '/members/(?P<id>\\d+)', [
             [
@@ -46,23 +65,41 @@ class MemberApiController
         ]);
     }
 
-    /**
-     * @return WP_REST_Response
-     */
-    public function get_members()
+    public function handle_get_member_summary(WP_REST_Request $request)
     {
-        $data = $this->member_service->get_all();
+        $eventId = $request->get_param('event_id');
+        $eventId = is_numeric($eventId) ? (int) $eventId : null;
+
+        $data = $this->member_service->get_member_summary($eventId);
+
         return new WP_REST_Response($data, 200);
     }
 
-    public function get_member_detail(WP_REST_Request $request) {
+    /**
+     * @return WP_REST_Response
+     */
+    public function get_members(WP_REST_Request $request)
+    {
+        $result = $this->member_service->get_paginated_members([
+            'page' => $request->get_param('page'),
+            'per_page' => $request->get_param('per_page'),
+            'event_id' => $request->get_param('event_id'),
+            'district_id' => $request->get_param('district_id'),
+            'village_id' => $request->get_param('village_id'),
+        ]);
+
+        return new WP_REST_Response($result, 200);
+    }
+
+    public function get_member_detail(WP_REST_Request $request)
+    {
         $id = $request->get_param('id');
         $data = $this->member_service->get_member_details($id);
 
         if (empty($data)) {
             return new WP_Error('not_found', 'Member tidak ditemukan.', ['status' => 404]);
         }
-        
+
         $settings = get_option('sig_plugin_settings', []);
         $data['map_data'] = $settings['map_data'] ?? [];
 
@@ -88,7 +125,7 @@ class MemberApiController
         }
 
         return new WP_REST_Response(
-            ['message' => 'Member berhasil dibuat', 'id' => $result], 
+            ['message' => 'Member berhasil dibuat', 'id' => $result],
             201
         );
     }
@@ -113,6 +150,20 @@ class MemberApiController
         );
     }
 
+    public function handle_analysis_events(WP_REST_Request $request)
+    {
+        $filters = $request->get_params();
+        $data = $this->member_service->top_events($filters);
+        return new WP_REST_Response($data, 200);
+    }
+
+    public function handle_analysis_badges(WP_REST_Request $request)
+    {
+        $filters = $request->get_params();
+        $data = $this->member_service->badge_distribution($filters);
+        return new WP_REST_Response($data, 200);
+    }
+
     /**
      * Callback untuk menghapus (soft delete) member.
      */
@@ -122,12 +173,12 @@ class MemberApiController
         $result = $this->member_service->softDelete($id);
         if (is_wp_error($result)) {
             return new WP_REST_Response(
-                ['message' => $result->get_error_message()], 
+                ['message' => $result->get_error_message()],
                 400
             );
         }
         return new WP_REST_Response(
-            ['message' => 'Member berhasil dihapus'], 
+            ['message' => 'Member berhasil dihapus'],
             200
         );
     }

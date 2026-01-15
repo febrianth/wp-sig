@@ -1,22 +1,339 @@
 <?php
 require_once WP_SIG_PLUGIN_PATH . 'includes/services/event-service.php';
+require_once WP_SIG_PLUGIN_PATH . 'includes/services/setting-service.php';
 
 class MemberService
 {
 
     private $wpdb;
+
     private $table_members;
     private $table_member_events;
-    private $event_service;
+    private $table_events;
 
+    private $event_service;
+    private $setting_service;
 
     public function __construct()
     {
         global $wpdb;
+
         $this->wpdb = $wpdb;
+
         $this->table_members = $this->wpdb->prefix . 'sig_members';
         $this->table_member_events = $this->wpdb->prefix . 'sig_member_events';
+        $this->table_events = $this->wpdb->prefix . 'sig_events';
+        
         $this->event_service = new EventService();
+        $this->setting_service = new SettingsService();
+    }
+
+    public function get_member_summary(?int $eventId): array
+    {
+        return [
+            'meta' => $this->get_meta($eventId),
+            'by_district' => $this->by_district($eventId),
+            'by_village' => $this->by_village($eventId),
+        ];
+    }
+
+    public function get_meta(?int $eventId): array
+    {
+        $whereEvent = '';
+        $params = [];
+
+        if ($eventId !== null) {
+            $whereEvent = "
+                AND EXISTS (
+                    SELECT 1
+                    FROM {$this->table_member_events} me
+                    WHERE me.member_id = m.id
+                      AND me.event_id = %d
+                      AND me.status = 'verified'
+                      AND me.deleted_at IS NULL
+                )
+            ";
+            $params[] = $eventId;
+        }
+
+        $sql = "
+            SELECT
+                COUNT(*) AS total_members,
+                SUM(m.is_outside_region = 0) AS inside_region,
+                SUM(m.is_outside_region = 1) AS outside_region
+            FROM {$this->table_members} m
+            WHERE m.deleted_at IS NULL
+              AND m.status = 'verified'
+            {$whereEvent}
+        ";
+
+        if (!empty($params)) {
+            $sql = $this->wpdb->prepare($sql, ...$params);
+        }
+
+        return (array) $this->wpdb->get_row($sql, ARRAY_A);
+    }
+
+    public function by_district(?int $eventId): array
+    {
+        $whereEvent = '';
+        $params = [];
+
+        if ($eventId !== null) {
+            $whereEvent = "
+            AND EXISTS (
+                SELECT 1
+                FROM {$this->table_member_events} me
+                WHERE me.member_id = m.id
+                  AND me.event_id = %d
+                  AND me.status = 'verified'
+                  AND me.deleted_at IS NULL
+            )
+        ";
+            $params[] = $eventId;
+        }
+
+        $sql = "
+            SELECT
+                m.district_id,
+                COUNT(*) AS total
+            FROM {$this->table_members} m
+            WHERE m.deleted_at IS NULL
+              AND m.status = 'verified'
+              AND m.district_id IS NOT NULL
+            {$whereEvent}
+            GROUP BY m.district_id
+            ORDER BY total DESC
+        ";
+
+        if (!empty($params)) {
+            $sql = $this->wpdb->prepare($sql, ...$params);
+        }
+
+        return $this->wpdb->get_results($sql, ARRAY_A);
+    }
+
+    public function by_village(?int $eventId): array
+    {
+        $whereEvent = '';
+        $params = [];
+
+        if ($eventId !== null) {
+            $whereEvent = "
+            AND EXISTS (
+                SELECT 1
+                FROM {$this->table_member_events} me
+                WHERE me.member_id = m.id
+                  AND me.event_id = %d
+                  AND me.status = 'verified'
+                  AND me.deleted_at IS NULL
+            )
+        ";
+            $params[] = $eventId;
+        }
+
+        $sql = "
+            SELECT
+                m.village_id,
+                m.district_id,
+                COUNT(*) AS total
+            FROM {$this->table_members} m
+            WHERE m.deleted_at IS NULL
+              AND m.status = 'verified'
+              AND m.village_id IS NOT NULL
+            {$whereEvent}
+            GROUP BY m.village_id, m.district_id
+            ORDER BY total DESC
+        ";
+
+        if (!empty($params)) {
+            $sql = $this->wpdb->prepare($sql, ...$params);
+        }
+
+        return $this->wpdb->get_results($sql, ARRAY_A);
+    }
+
+    public function get_paginated_members(array $args): array
+    {
+        $page = max(1, (int) ($args['page'] ?? 1));
+        $perPage = min(50, max(10, (int) ($args['per_page'] ?? 20)));
+        $offset = ($page - 1) * $perPage;
+
+        $where = ["m.deleted_at IS NULL", "m.status = 'verified'"];
+        $params = [];
+
+        // Filter event
+        if (!empty($args['event_id'])) {
+            $where[] = "
+            EXISTS (
+                SELECT 1
+                FROM {$this->table_member_events} me
+                WHERE me.member_id = m.id
+                  AND me.event_id = %d
+                  AND me.status = 'verified'
+                  AND me.deleted_at IS NULL
+            )
+        ";
+            $params[] = (int) $args['event_id'];
+        }
+
+        // Filter district
+        if (!empty($args['district_id'])) {
+            $where[] = "m.district_id = %s";
+            $params[] = $args['district_id'];
+        }
+
+        // Filter village
+        if (!empty($args['village_id'])) {
+            $where[] = "m.village_id = %s";
+            $params[] = $args['village_id'];
+        }
+
+        $whereSql = implode(' AND ', $where);
+
+        // DATA QUERY
+        $sql = "
+        SELECT
+            m.*
+        FROM {$this->table_members} m
+        WHERE {$whereSql}
+        ORDER BY m.created_at DESC
+        LIMIT %d OFFSET %d
+    ";
+
+        $params[] = $perPage;
+        $params[] = $offset;
+
+        $dataSql = $this->wpdb->prepare($sql, ...$params);
+        $data = $this->wpdb->get_results($dataSql, ARRAY_A);
+
+        // COUNT QUERY (TANPA LIMIT)
+        $countSql = "
+        SELECT COUNT(*)
+        FROM {$this->table_members} m
+        WHERE {$whereSql}
+    ";
+
+        $countSql = $this->wpdb->prepare($countSql, ...array_slice($params, 0, -2));
+        $total = (int) $this->wpdb->get_var($countSql);
+
+        return [
+            'data' => $data,
+            'meta' => [
+                'page' => $page,
+                'per_page' => $perPage,
+                'total' => $total,
+                'total_pages' => (int) ceil($total / $perPage),
+            ]
+        ];
+    }
+
+    public function top_events(array $filters = []): array
+    {
+        $limit = $filters['limit'] ?? 10;
+
+        $where = "m.status = 'verified' AND me.status = 'verified'";
+        $params = [];
+
+        if (!empty($filters['event_id'])) {
+            $where .= " AND me.event_id = %d";
+            $params[] = $filters['event_id'];
+        }
+
+        if (!empty($filters['region_level']) && !empty($filters['region_code'])) {
+            if ($filters['region_level'] === 'district') {
+                $where .= " AND m.district_id = %s";
+                $params[] = $filters['region_code'];
+            } elseif ($filters['region_level'] === 'village') {
+                $where .= " AND m.village_id = %s";
+                $params[] = $filters['region_code'];
+            }
+        }
+
+        $sql = "
+            SELECT
+                e.event_name AS label,
+                COUNT(DISTINCT m.id) AS value
+            FROM {$this->table_member_events} me
+            JOIN {$this->table_members} m ON m.id = me.member_id
+            JOIN {$this->table_events} e ON e.id = me.event_id
+            WHERE {$where}
+            GROUP BY me.event_id
+            ORDER BY value DESC
+            LIMIT {$limit}
+        ";
+
+        return $this->wpdb->get_results(
+            $this->wpdb->prepare($sql, ...$params),
+            ARRAY_A
+        );
+    }
+
+    // ============================
+    // BADGE DISTRIBUTION
+    // ============================
+    public function badge_distribution(array $filters = []): array
+    {
+        $where = "m.status = 'verified'";
+        $params = [];
+
+        if (!empty($filters['region_level']) && !empty($filters['region_code'])) {
+            if ($filters['region_level'] === 'district') {
+                $where .= " AND m.district_id = %s";
+                $params[] = $filters['region_code'];
+            } elseif ($filters['region_level'] === 'village') {
+                $where .= " AND m.village_id = %s";
+                $params[] = $filters['region_code'];
+            }
+        }
+
+        $settings = $this->setting_service->get_settings();
+
+        $gold = $settings['badge_thresholds']['gold'];
+        $silver = $settings['badge_thresholds']['silver'];
+        $bronze = $settings['badge_thresholds']['bronze'];
+
+       $sql = "
+            SELECT
+                label,
+                COUNT(*) AS value
+            FROM (
+                SELECT
+                    m.id,
+                    CASE
+                        WHEN COUNT(me.id) >= {$gold} THEN 'Gold'
+                        WHEN COUNT(me.id) >= {$silver} THEN 'Silver'
+                        WHEN COUNT(me.id) >= {$bronze} THEN 'Bronze'
+                        ELSE 'New'
+                    END AS label
+                FROM {$this->table_members} m
+                LEFT JOIN {$this->table_member_events} me
+                    ON me.member_id = m.id
+                    AND me.status = 'verified'
+                WHERE {$where}
+                GROUP BY m.id
+            ) t
+            GROUP BY label
+        ";
+        // die(var_dump($filters));
+
+        $rows = $this->wpdb->get_results(
+            $this->wpdb->prepare($sql, ...$params),
+            ARRAY_A
+        );
+
+        $total = array_sum(array_column($rows, 'value'));
+
+        return [
+            'total' => $total,
+            'data' => array_map(function ($row) use ($total) {
+                return [
+                    'label' => $row['label'],
+                    'value' => (int)$row['value'],
+                    'percentage' => $total > 0 ? round(($row['value'] / $total) * 100, 2) : 0
+                ];
+            }, $rows)
+        ];
     }
 
     /**
@@ -252,7 +569,7 @@ class MemberService
                 ['status' => 409]
             ); // 409 Conflict
         }
-        
+
         if ($data['is_outside_region'] == 1) {
             $data['district_id'] = null;
             $data['village_id'] = null;
@@ -347,7 +664,7 @@ class MemberService
         $this->wpdb->update(
             $this->table_member_events,
             ['deleted_at' => $now],
-            ['member_id' => $member_id] 
+            ['member_id' => $member_id]
         );
 
         // 2. Tambahkan kembali koneksi untuk event yang baru dipilih

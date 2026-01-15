@@ -3,154 +3,225 @@ import * as d3 from 'd3';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
-function RegionMap({ className, geojsonUrl, aggregatedData, idKey, nameKey, onRegionClick, filterByCode, filterKey, districtId = null, districtKey = null, luarDaerahCount, onMapLoaded }) {
+const buildLookupKey = ({
+    geoId,
+    filterByCode,
+    districtId
+}) => {
+    if (districtId) return `${districtId}.${geoId}`;
+    if (filterByCode) return `${filterByCode}.${geoId}`;
+    return geoId;
+};
+
+function RegionMap({
+    className,
+    geojsonUrl,
+    aggregatedData = {},
+    idKey,
+    nameKey,
+    onRegionClick,
+    filterByCode,
+    filterKey,
+    districtId = null,
+    districtKey = null,
+    luarDaerahCount = 0,
+    onMapLoaded
+}) {
     const svgRef = useRef(null);
     const containerRef = useRef(null);
     const [tooltip, setTooltip] = useState({ visible: false, content: '', x: 0, y: 0 });
 
     useEffect(() => {
-        if (!geojsonUrl || !idKey || !nameKey) {
-            console.warn('[RegionMap] Render dibatalkan: Props kunci (geojsonUrl, idKey, nameKey) belum siap.');
-            return;
-        }
+        if (!geojsonUrl || !idKey || !nameKey || !containerRef.current) return;
 
         const { width, height } = containerRef.current.getBoundingClientRect();
-        const svg = d3.select(svgRef.current).html("").attr('viewBox', `0 0 ${width} ${height}`);
+        const svg = d3.select(svgRef.current).html('');
+        svg.attr('viewBox', `0 0 ${width} ${height}`);
 
-        d3.json(geojsonUrl).then(geojson => {
-            let features = geojson.features;
+        d3.json(geojsonUrl)
+            .then(geojson => {
+                let features = geojson.features ?? [];
 
-            if (filterByCode && filterKey) {
-                if (districtId && districtKey) {
-                    features = geojson.features.filter(f => String(f.properties[districtKey]) === String(districtId));
+                // Filter wilayah
+                if (filterByCode && filterKey) {
+                    features = features.filter(f =>
+                        String(f.properties[filterKey]) === String(filterByCode)
+                    );
                 }
-                features = features.filter(f => String(f.properties[filterKey]) === String(filterByCode));
-            }
 
-            if (!filterByCode && luarDaerahCount > 0) {
-                // Buat grup baru untuk kotak info
-                const infoBox = svg.append('g')
-                    .attr('transform', `translate(10, ${height - 40})`); // Posisi di kiri bawah
+                if (districtId && districtKey) {
+                    features = features.filter(f =>
+                        String(f.properties[districtKey]) === String(districtId)
+                    );
+                }
 
-                infoBox.append('rect')
-                    .attr('width', 150)
-                    .attr('height', 30)
-                    .attr('fill', '#f0f0f0') // Warna abu-abu seperti wilayah 0
+                if (!features.length) {
+                    svg.append('text')
+                        .attr('x', width / 2)
+                        .attr('y', height / 2)
+                        .attr('text-anchor', 'middle')
+                        .text('Tidak ada data peta.');
+                    return;
+                }
+
+                const geoData = { type: 'FeatureCollection', features };
+
+                const projection = d3.geoMercator().fitSize([width, height], geoData);
+                const path = d3.geoPath().projection(projection);
+
+                const unmappedCount = Number(aggregatedData?.[''] || 0);
+
+                // Hapus key kosong dari data yang dipakai map & legend
+                const cleanedAggregatedData = Object.fromEntries(
+                    Object.entries(aggregatedData || {})
+                        .filter(([key]) => key !== '' && key !== null)
+                );
+
+                const maxCount = d3.max(Object.values(cleanedAggregatedData)) || 0;
+                const colorScale = d3.scaleLinear()
+                    .domain([0, maxCount])
+                    .range(['#eff3ff', '#08519c']);
+
+                // Info luar daerah
+                if (!filterByCode && (luarDaerahCount > 0 || unmappedCount > 0)) {
+                    const rows =
+                        (luarDaerahCount > 0 ? 1 : 0) +
+                        (unmappedCount > 0 ? 1 : 0);
+
+                    const infoBox = svg.append('g')
+                        .attr('transform', `translate(10, ${height - (rows * 16 + 14)})`);
+
+                    infoBox.append('rect')
+                        .attr('width', 230)
+                        .attr('height', rows * 16 + 8)
+                        .attr('fill', '#f0f0f0')
+                        .attr('stroke', '#000')
+                        .attr('stroke-width', 1);
+
+                    let y = 18;
+
+                    if (luarDaerahCount > 0) {
+                        infoBox.append('text')
+                            .attr('x', 10)
+                            .attr('y', y)
+                            .style('font-size', '12px')
+                            .style('font-weight', 'bold')
+                            .text(`Luar Daerah: ${luarDaerahCount}`);
+                        y += 16;
+                    }
+
+                    if (unmappedCount > 0) {
+                        infoBox.append('text')
+                            .attr('x', 10)
+                            .attr('y', y)
+                            .style('font-size', '12px')
+                            .style('font-weight', 'bold')
+                            .text(`Belum Memiliki Wilayah: ${unmappedCount}`);
+                    }
+                }
+
+                svg.append('g')
+                    .selectAll('path')
+                    .data(features)
+                    .join('path')
+                    .attr('d', path)
                     .attr('stroke', '#000')
-                    .attr('stroke-width', 1);
+                    .attr('stroke-width', 1)
+                    .attr('fill', d => {
+                        const geoId = d.properties[idKey];
+                        const key = buildLookupKey({
+                            geoId,
+                            filterByCode,
+                            districtId
+                        });
+                        const count = cleanedAggregatedData[key] || 0;
+                        return count === 0 ? '#f0f0f0' : colorScale(count);
+                    })
+                    .style('cursor', onRegionClick ? 'pointer' : 'default')
+                    .on('click', (_, d) => {
+                        onRegionClick?.(d.properties[idKey]);
+                    })
+                    .on('mouseover', function (event, d) {
+                        const geoId = d.properties[idKey];
+                        const key = buildLookupKey({ geoId, filterByCode, districtId });
+                        const count = cleanedAggregatedData[key] || 0;
 
-                infoBox.append('text')
-                    .attr('x', 10)
-                    .attr('y', 20)
-                    .style('font-size', '12px')
-                    .style('font-weight', 'bold')
-                    .text(`Luar Daerah: ${luarDaerahCount}`);
-            }
+                        setTooltip({
+                            visible: true,
+                            content: `${d.properties[nameKey]} | Jumlah: ${count}`,
+                            x: event.pageX,
+                            y: event.pageY
+                        });
 
-            const filteredGeojson = { type: 'FeatureCollection', features };
-            if (features.length === 0) {
-                svg.append('text').attr('x', width / 2).attr('y', height / 2).attr('text-anchor', 'middle').text('Tidak ada data peta untuk ditampilkan.');
-                return;
-            }
+                        d3.select(this).attr('stroke-width', 2.5);
+                    })
+                    .on('mousemove', event =>
+                        setTooltip(t => ({ ...t, x: event.pageX, y: event.pageY }))
+                    )
+                    .on('mouseout', function () {
+                        setTooltip(t => ({ ...t, visible: false }));
+                        d3.select(this).attr('stroke-width', 1);
+                    });
 
-            const projection = d3.geoMercator().fitSize([width, height], filteredGeojson);
-            const pathGenerator = d3.geoPath().projection(projection);
+                // Legend
+                if (maxCount > 0 && !districtId) {
+                    const legendHeight = 140;
+                    const legend = svg.append('g')
+                        .attr('transform', `translate(${width - 60}, 30)`);
 
-            const maxCount = d3.max(Object.values(aggregatedData)) || 0;
-            const colorScale = d3.scaleLinear().domain([0, maxCount]).range(["#eff3ff", "#08519c"]);
+                    const scale = d3.scaleLinear()
+                        .domain([0, maxCount])
+                        .range([legendHeight, 0]);
 
-            svg.append('g')
-                .selectAll('path')
-                .data(filteredGeojson.features)
-                .join('path')
-                .attr('d', pathGenerator)
-                .attr('stroke', '#000').attr('stroke-width', 1)
-                .attr('fill', d => {
-                    const idFromGeoJson = d.properties[idKey];
-                    let lookupKey = idFromGeoJson;
-                    if (filterByCode && filterKey && !districtId && !districtKey) {
-                        lookupKey = `${filterByCode}.${idFromGeoJson}`;
-                    } else if (districtId && districtKey) {
-                        lookupKey = `${districtId}.${idFromGeoJson}`;
-                    }
-                    const count = aggregatedData[lookupKey] || 0;
-                    return count === 0 ? '#f0f0f0' : colorScale(count);
-                })
-                .style('cursor', onRegionClick ? 'pointer' : 'default')
-                .on('click', (event, d) => {
-                    if (typeof onRegionClick === 'function') {
-                        onRegionClick(d.properties[idKey]);
-                    }
-                })
-                .on('mouseover', function (event, d) {
-                    const idFromGeoJson = d.properties[idKey];
-                    let lookupKey = idFromGeoJson;
-                    if (filterByCode && filterKey && !districtId && !districtKey) {
-                        lookupKey = `${filterByCode}.${idFromGeoJson}`;
-                    } else if (districtId && districtKey) {
-                        lookupKey = `${districtId}.${idFromGeoJson}`;
-                    }
-                    const regionName = d.properties[nameKey];
-                    const count = aggregatedData[lookupKey] || 0;
-                    setTooltip({ visible: true, content: `${regionName} | Jumlah: ${count}`, x: event.pageX, y: event.pageY });
-                    d3.select(this).attr('stroke-width', 2.5);
-                })
-                .on('mousemove', (event) => setTooltip(prev => ({ ...prev, x: event.pageX, y: event.pageY })))
-                .on('mouseout', function () {
-                    setTooltip(prev => ({ ...prev, visible: false }));
-                    d3.select(this).attr('stroke-width', 1);
-                });
+                    const defs = svg.append('defs');
+                    const gradient = defs.append('linearGradient')
+                        .attr('id', 'legend-gradient')
+                        .attr('x1', '0%').attr('y1', '100%')
+                        .attr('x2', '0%').attr('y2', '0%');
 
-            if (maxCount > 0 && !districtId && !districtKey) {
-                const legendHeight = 150, legendWidth = 20;
-                const legendGroup = svg.append('g').attr('transform', `translate(${width - 70}, 30)`);
-                const legendScale = d3.scaleLinear().domain([0, maxCount]).range([legendHeight, 0]);
+                    gradient.append('stop').attr('offset', '0%').attr('stop-color', colorScale(0));
+                    gradient.append('stop').attr('offset', '100%').attr('stop-color', colorScale(maxCount));
 
-                const defs = svg.append('defs');
-                const linearGradient = defs.append('linearGradient').attr('id', 'legend-gradient').attr('x1', '0%').attr('y1', '100%').attr('x2', '0%').attr('y2', '0%');
+                    legend.append('rect')
+                        .attr('width', 18)
+                        .attr('height', legendHeight)
+                        .style('fill', 'url(#legend-gradient)')
+                        .attr('stroke', '#000');
 
-                // Gunakan range warna dari skala kita untuk gradien
-                linearGradient.append('stop').attr('offset', '0%').attr('stop-color', colorScale.range()[0]);
-                linearGradient.append('stop').attr('offset', '100%').attr('stop-color', colorScale.range()[1]);
+                    legend.append('g')
+                        .attr('transform', 'translate(18,0)')
+                        .call(d3.axisRight(scale).ticks(5))
+                        .selectAll('text')
+                        .style('font-size', '10px');
+                }
+            })
+            .finally(() => onMapLoaded?.());
 
-                legendGroup.append('rect')
-                    .attr('width', legendWidth)
-                    .attr('height', legendHeight)
-                    .style('fill', 'url(#legend-gradient)')
-                    .attr('stroke', '#000')
-                    .attr('stroke-width', 1);
+    }, [
+        geojsonUrl,
+        aggregatedData,
+        filterByCode,
+        districtId,
+        luarDaerahCount
+    ]);
 
-                const yAxis = d3.axisRight(legendScale).ticks(Math.min(maxCount, 5), "s");
-                legendGroup.append('g').attr('transform', `translate(${legendWidth}, 0)`).call(yAxis)
-                    .selectAll('text').style('font-size', '10px');
-            }
-
-        }).then(() => {
-            if (typeof onMapLoaded === 'function') {
-                onMapLoaded();
-            }
-        }).catch(err => console.error("Gagal memuat GeoJSON:", err));
-
-    }, [geojsonUrl, aggregatedData, idKey, nameKey, onRegionClick, filterByCode, filterKey, luarDaerahCount]);
     return (
         <TooltipProvider>
-            <div
-                ref={containerRef}
-                className={cn("w-full h-full relative", className)}
-            >
+            <div ref={containerRef} className={cn('relative w-full h-full', className)}>
                 <svg ref={svgRef} className="w-full h-full" />
 
                 <Tooltip open={tooltip.visible}>
                     <TooltipTrigger asChild>
-                        <div style={{ position: 'fixed', top: tooltip.y, left: tooltip.x, pointerEvents: 'none' }} />
+                        <div style={{ position: 'fixed', top: tooltip.y, left: tooltip.x }} />
                     </TooltipTrigger>
-                    <TooltipContent sideOffset={15}>
-                        <p>{tooltip.content}</p>
+                    <TooltipContent>
+                        {tooltip.content}
                     </TooltipContent>
                 </Tooltip>
             </div>
         </TooltipProvider>
     );
 }
+
 
 export default RegionMap;

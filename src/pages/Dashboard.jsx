@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
-
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -12,11 +10,8 @@ import { PlusCircle } from 'lucide-react';
 import { generateColumns } from "./members/columns";
 import { DataTable } from "@/components/custom/DataTable";
 import { useToast } from "@/hooks/use-toast";
-import { Skeleton } from "@/components/ui/skeleton";
-
 import RegionMap from '@/components/dashboard/RegionMap';
-import DonutChartCard from '@/components/dashboard/DonutChartCard';
-
+import AnalyzeCard from '@/components/dashboard/AnalyzeCard';
 
 function SetupCta() {
     return (
@@ -35,13 +30,15 @@ function SetupCta() {
 function Dashboard() {
     const [settings, setSettings] = useState(null);
     const [members, setMembers] = useState([]);
-    const [events, setEvents] = useState([]); // <-- STATE BARU UNTUK DAFTAR EVENT
+    const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [view, setView] = useState({ level: 'regency', code: null, parentCode: null });
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingMember, setEditingMember] = useState(null);
     const [deletingMember, setDeletingMember] = useState(null);
     const [isMapLoading, setIsMapLoading] = useState(true);
+    const [summary, setSummary] = useState(null);
+    const [selectedEvent, setSelectedEvent] = useState(null);
 
     const thresholds = settings?.badge_thresholds || { gold: 3, silver: 2, bronze: 1 };
 
@@ -51,26 +48,47 @@ function Dashboard() {
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            const [settingsRes, membersRes, eventsRes] = await Promise.all([
+            const [settingsRes, membersRes, eventsRes, summaryRes] = await Promise.all([
                 fetch(sig_plugin_data.api_url + 'settings', { headers: { 'X-WP-Nonce': sig_plugin_data.nonce } }),
                 fetch(sig_plugin_data.api_url + 'members', { headers: { 'X-WP-Nonce': sig_plugin_data.nonce } }),
-                fetch(sig_plugin_data.api_url + 'events', { headers: { 'X-WP-Nonce': sig_plugin_data.nonce } })
+                fetch(sig_plugin_data.api_url + 'events', { headers: { 'X-WP-Nonce': sig_plugin_data.nonce } }),
+                fetch(sig_plugin_data.api_url + 'members/summary', { headers: { 'X-WP-Nonce': sig_plugin_data.nonce } }),
             ]);
             const settingsData = await settingsRes.json();
             const membersData = await membersRes.json();
             const eventsData = await eventsRes.json();
+            const summaryData = await summaryRes.json();
             setSettings(settingsData);
             setMembers(membersData);
             setEvents(eventsData);
+            setSummary(summaryData);
         } catch (error) {
             console.error("Gagal mengambil data:", error);
         }
         setLoading(false);
     }, []);
 
+    const fetchSummary = useCallback(async () => {
+        const url = new URL(sig_plugin_data.api_url + 'members/summary');
+        if (selectedEvent) {
+            url.searchParams.set('event_id', selectedEvent);
+        }
+
+        const res = await fetch(url, {
+            headers: { 'X-WP-Nonce': sig_plugin_data.nonce }
+        });
+
+        const data = await res.json();
+        setSummary(data);
+    }, [selectedEvent]);
+
     useEffect(() => {
         fetchData();
     }, [fetchData]);
+
+    useEffect(() => {
+        setIsMapLoading(true);
+    }, [view]);
 
     function getBadgeForEventCount(count) {
         let badgedata;
@@ -97,52 +115,34 @@ function Dashboard() {
         return badgedata;
     }
 
-    const filteredMembers = useMemo(() => {
-        const rankedMembers = members.map(member => ({
-            ...member,
-            badge: getBadgeForEventCount(member.event_count || 0)
-        }));
-
-        if (!view.code) return rankedMembers; // Tampilan awal, tampilkan semua
-        if (view.level === 'district') return rankedMembers.filter(m => m.district_id === view.code);
-        if (view.level === 'village') return rankedMembers.filter(m => m.village_id === `${view.parentCode}.${view.code}`);
-        return rankedMembers;
-    }, [view, members]);
-
-    const luarDaerahCount = useMemo(() => {
-        return members.filter(m => m.is_outside_region == 1).length;
-    }, [members]);
-
     const aggregatedData = useMemo(() => {
-        // Jangan jalankan agregasi jika settings atau members belum ada
-        if (!members.length || !settings?.map_keys) return {};
+        if (!summary) return {};
 
-        let keyToAggregateBy = null;
         if (view.level === 'regency') {
-            keyToAggregateBy = 'district_id';
-        } else if (view.level === 'district' || view.level === 'village') {
-            keyToAggregateBy = 'village_id';
+            return summary.by_district.reduce((acc, d) => {
+                acc[d.district_id] = d.total;
+                return acc;
+            }, {});
         }
 
-        if (!keyToAggregateBy) return {};
-
-        return members.reduce((acc, member) => {
-            const region = member[keyToAggregateBy];
-            if (region) acc[region] = (acc[region] || 0) + 1;
+        return summary.by_village.reduce((acc, v) => {
+            acc[v.village_id] = v.total;
             return acc;
         }, {});
-    }, [members, settings, view.level]);
+    }, [summary, view.level]);
 
     const handleRegionClick = (clickedCode) => {
-        if (isMapLoading) return;
-        setIsMapLoading(true);
+        setView(prev => {
+            if (prev.level === 'regency') {
+                return { level: 'district', code: clickedCode, parentCode: null };
+            }
 
-        if (view.level === 'regency') {
-            setView({ level: 'district', code: clickedCode, parentCode: null });
-        }
-        else if (view.level === 'district') {
-            setView({ level: 'village', code: clickedCode, parentCode: view.code });
-        }
+            if (prev.level === 'district') {
+                return { level: 'village', code: clickedCode, parentCode: prev.code };
+            }
+
+            return prev;
+        });
     };
 
     const handleGoBack = () => {
@@ -172,21 +172,33 @@ function Dashboard() {
                 },
                 body: JSON.stringify(formData),
             });
-            if (!response.ok) throw new Error("Gagal menyimpan data.");
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    result?.message || "Terjadi kesalahan saat menyimpan data."
+                );
+            }
 
             toast({
                 title: "Sukses!",
-                description: isEditing ? `Data member "${formData.name}" telah berhasil diperbarui.` : `Data member "${formData.name}" telah berhasil disimpan.`,
+                description: isEditing
+                    ? `Data member "${formData.name}" berhasil diperbarui.`
+                    : `Data member "${formData.name}" berhasil disimpan.`,
             });
+
             setIsDialogOpen(false);
             setEditingMember(null);
-            await fetchData(); // Panggil fungsi fetchData yang sudah stabil
+            await fetchData();
+
         } catch (error) {
             toast({
                 variant: "destructive",
                 title: isEditing ? "Gagal Memperbarui" : "Gagal Menyimpan",
-                description: error,
+                description: error.message,
             });
+
             console.error("Error saving data:", error);
         }
     };
@@ -208,12 +220,12 @@ function Dashboard() {
                 description: `Data member "${deletingMember.name}" telah berhasil dihapus.`,
             });
             setDeletingMember(null);
-            await fetchData(); // Panggil fungsi fetchData yang sudah stabil
+            await fetchData();
         } catch (error) {
             toast({
                 variant: "destructive",
                 title: "Gagal hapus data",
-                description: error,
+                description: error.message,
             });
             console.error("Error deleting data:", error);
         }
@@ -226,15 +238,16 @@ function Dashboard() {
     }), [settings]);
 
     if (loading) return <p>Memuat data...</p>;
+
     if (!settings?.map_files?.districts || !settings?.map_files?.villages) {
         return <SetupCta />;
     }
 
+    let pageTitle = '';
     let mapProps = {};
-    let pageTitle = "Visualisasi Peta Daerah";
 
     switch (view.level) {
-        case 'district':
+        case 'district': {
             pageTitle = `Peta Kecamatan ${settings.map_data?.districts?.[view.code] || ''}`;
 
             mapProps = {
@@ -246,9 +259,14 @@ function Dashboard() {
                 onRegionClick: handleRegionClick,
             };
             break;
-        case 'village':
-            const villageInfo = settings.map_data?.villages?.[`${view.parentCode}.${view.code}`];
-            const districtName = settings.map_data?.districts?.[view.parentCode] || '';
+        }
+
+        case 'village': {
+            const villageInfo =
+                settings.map_data?.villages?.[`${view.parentCode}.${view.code}`];
+            const districtName =
+                settings.map_data?.districts?.[view.parentCode] || '';
+
             pageTitle = `Peta Desa ${villageInfo?.name || ''}, Kec. ${districtName}`;
 
             mapProps = {
@@ -262,8 +280,10 @@ function Dashboard() {
                 onRegionClick: null,
             };
             break;
-        default: // 'regency'
-            pageTitle = "Visualisasi Peta Daerah";
+        }
+
+        default: { // regency
+            pageTitle = 'Visualisasi Peta Daerah';
 
             mapProps = {
                 geojsonUrl: settings.map_files.districts,
@@ -272,6 +292,7 @@ function Dashboard() {
                 onRegionClick: handleRegionClick,
             };
             break;
+        }
     }
 
     return (
@@ -285,12 +306,12 @@ function Dashboard() {
                             <CardDescription>
                                 <div className="flex justify-between items-center">
                                     <div>
-                                        {view.code ? `Total ${filteredMembers.length} Peserta.` : `Total ${members.length} Peserta.`}
+                                        {`Total ${members.meta.total} Peserta.`}
                                     </div>
                                     <div>
                                         {view.level !== 'regency' && (
-                                            <Button 
-                                                onClick={handleGoBack} 
+                                            <Button
+                                                onClick={handleGoBack}
                                                 variant="outline"
                                                 disabled={isMapLoading}
                                             >
@@ -346,10 +367,10 @@ function Dashboard() {
                             <RegionMap
                                 {...mapProps}
                                 aggregatedData={aggregatedData}
-                                onRegionClick={handleRegionClick}
+                                luarDaerahCount={summary.meta.outside_region}
                                 onMapLoaded={() => setIsMapLoading(false)}
-                                className={`h-[550px] transition-opacity duration-300 ${isMapLoading ? 'opacity-0' : 'opacity-100'}`}
-                                luarDaerahCount={luarDaerahCount}
+                                className={`h-[550px] transition-opacity duration-300 ${isMapLoading ? 'opacity-0' : 'opacity-100'
+                                    }`}
                             />
                         </CardContent>
 
@@ -358,10 +379,9 @@ function Dashboard() {
 
                 {/* Bagian Donut Chart */}
                 <div className='lg:col-span-1'>
-                    <DonutChartCard
-                        filteredMembers={filteredMembers} // Kirim member yang sudah diproses
-                        events={events}
-                        className="h-[700px] bg-[linear-gradient(to_right,#8080804D_1px,transparent_1px),linear-gradient(to_bottom,#80808090_1px,transparent_1px)] [background-size:40px_40px] bg-secondary-background"
+                    <AnalyzeCard
+                        view={view}
+                        eventId={selectedEvent}
                     />
                 </div>
             </div>
@@ -372,7 +392,7 @@ function Dashboard() {
                     <div>
                         <h2 className="text-2xl font-bold">Manajemen Peserta</h2>
                         <p className="text-muted-foreground">
-                            {view.code ? `Menampilkan ${filteredMembers.length} Peserta untuk wilayah terpilih.` : `Menampilkan total ${members.length} Peserta.`}
+                            {view.code ? `Menampilkan ${members.data.length} Peserta untuk wilayah terpilih.` : `Menampilkan total ${members.data.length} Peserta.`}
                         </p>
                     </div>
                     <Button onClick={() => { setEditingMember(null); setIsDialogOpen(true); }} disabled={!settings?.map_data}>
@@ -380,7 +400,7 @@ function Dashboard() {
                     </Button>
                 </div>
                 {/* Kirim data yang SUDAH DIFILTER ke DataTable */}
-                <DataTable columns={columns} data={filteredMembers} />
+                <DataTable columns={columns} data={members.data} />
             </div>
 
             {/* Dialog untuk Tambah/Edit Member */}

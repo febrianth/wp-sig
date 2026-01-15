@@ -11,10 +11,14 @@ import ImportPage from './pages/settings/importPage';
 import EventPage from './pages/EventPage';
 import AttendancePage from './pages/AttendancePage';
 import MemberDetailPage from './pages/members/MemberDetailPage';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+const queryClient = new QueryClient();
 
 function App() {
     return (
         <>
+          <QueryClientProvider client={queryClient}>
             <Navbar />
             <main className="px-4">
                 <Routes>
@@ -32,6 +36,7 @@ function App() {
                 </Routes>
                 <Toaster duration={3000} />
             </main>
+            </QueryClientProvider>
         </>
     );
 }
