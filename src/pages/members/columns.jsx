@@ -2,8 +2,20 @@
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Link } from "react-router-dom";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { MoreHorizontal, Eye } from "lucide-react"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { MoreHorizontal } from "lucide-react"
+
+// Helper function untuk menentukan Badge
+const getBadgeProps = (count, badgeCount) => {
+    // Pastikan count menjadi number
+    const num = Number(count || 0);
+
+    if (num >= badgeCount.gold) return { label: 'Gold', className: 'bg-yellow-500 hover:bg-yellow-600' };
+    if (num >= badgeCount.silver) return { label: 'Silver', className: 'bg-gray-400 hover:bg-gray-500' };
+    if (num >= badgeCount.bronze) return { label: 'Bronze', className: 'bg-amber-700 hover:bg-amber-800' };
+
+    return { label: 'New', className: 'bg-slate-200 text-slate-700 hover:bg-slate-300' };
+};
 
 export const generateColumns = ({ onEdit, onDelete, settings }) => [
     {
@@ -30,7 +42,6 @@ export const generateColumns = ({ onEdit, onDelete, settings }) => [
                 : <span className="text-destructive">[{member.village_id || 'N/A'}]</span>;
             return <span>{villageName}, {districtName}</span>;
         },
-        enableSorting: false, // <-- Nonaktifkan sorting untuk kolom ini
     },
     {
         accessorKey: "full_address",
@@ -40,10 +51,23 @@ export const generateColumns = ({ onEdit, onDelete, settings }) => [
         accessorKey: "event_count",
         header: "Peringkat",
         cell: ({ row }) => {
-            const badge = row.original.badge;
-            if (!badge) return null;
-            return <Badge className={badge.classname}>{badge.text}</Badge>;
-        }
+            // Ambil data dari backend
+            const count = row.getValue("event_count");
+            const { label, className } = getBadgeProps(count, settings.badge_thresholds);
+
+            return (
+                <div className="flex flex-col items-start gap-1">
+                    {/* Tampilkan Badge */}
+                    <Badge className={`${className} border-none`}>
+                        {label}
+                    </Badge>
+                    {/* Tampilkan detail angka kecil di bawahnya */}
+                    <span className="text-[10px] text-muted-foreground">
+                        {count} Event diikuti
+                    </span>
+                </div>
+            );
+        },
     },
     {
         id: "actions",
@@ -69,6 +93,5 @@ export const generateColumns = ({ onEdit, onDelete, settings }) => [
                 </div>
             );
         },
-        enableSorting: false,
     },
 ];

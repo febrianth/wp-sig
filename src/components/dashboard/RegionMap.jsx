@@ -116,8 +116,9 @@ function RegionMap({
                             .attr('y', y)
                             .style('font-size', '12px')
                             .style('font-weight', 'bold')
-                            .text(`Belum Memiliki Wilayah: ${unmappedCount}`);
+                            .text(`Belum Memiliki Wilayah: ${unmappedCount - luarDaerahCount}`);
                     }
+                    console.log(luarDaerahCount)
                 }
 
                 svg.append('g')

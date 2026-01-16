@@ -382,7 +382,7 @@ export default function AnalyzeCard({ view, eventId }) {
             <CardHeader>
                 <CardTitle>Analisis Peserta</CardTitle>
                 <CardDescription>
-                    {chartType === 'events' ? 'Top Event Paling Banyak Diikuti' : 'Distribusi Peringkat Peserta'}
+                    {chartType === 'events' ? 'Top Event Paling Banyak Diikuti Berdasarkan Wilayah Terpilih' : 'Distribusi Peringkat Peserta Berdasarkan Wilayah Terpilih'}
                 </CardDescription>
 
                 <div className="flex gap-2 pt-2">

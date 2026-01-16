@@ -1,150 +1,98 @@
 "use client"
 import React from "react"
-import { flexRender, getCoreRowModel, useReactTable, getFilteredRowModel, getPaginationRowModel, getSortedRowModel } from "@tanstack/react-table"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
+import { flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import {
-	Pagination,
-	PaginationContent,
-	PaginationItem,
-	PaginationLink,
-	PaginationNext,
-	PaginationPrevious,
-} from '@/components/ui/pagination'
-import { ArrowUpDown, ArrowDown, ArrowUp } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { ChevronLeft, ChevronRight, Loader2, Inbox } from "lucide-react"
 
-export function DataTable({ columns, data }) {
-	const [filtering, setFiltering] = React.useState('');
-	const [sorting, setSorting] = React.useState([]);
+export function DataTable({ columns, data, meta, onPageChange, loading }) {
+  const table = useReactTable({
+    data,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    manualPagination: true, // Beritahu table kalau pagination di-handle server
+  })
 
-	const table = useReactTable({
-		data,
-		columns,
-		getCoreRowModel: getCoreRowModel(),
-		getFilteredRowModel: getFilteredRowModel(),
-		getPaginationRowModel: getPaginationRowModel(),
-		getSortedRowModel: getSortedRowModel(), // <-- 3. Aktifkan sorting
-		state: {
-			globalFilter: filtering,
-			sorting: sorting, // <-- 4. Hubungkan state
-		},
-		onGlobalFilterChange: setFiltering,
-		onSortingChange: setSorting, // <-- 5. Hubungkan handler
-		initialState: {
-			pagination: {
-				pageSize: 10 // Menampilkan baris per halaman
-			}
-		}
-	})
+  return (
+    <div className="space-y-4">
+      <div className="rounded-md border bg-card relative overflow-hidden">
+        
+        {/* Loading Overlay */}
+        {loading && (
+          <div className="absolute inset-0 bg-background/60 backdrop-blur-[1px] z-50 flex flex-col items-center justify-center text-primary">
+            <Loader2 className="h-8 w-8 animate-spin mb-2" />
+            <span className="text-sm font-medium">Memuat data...</span>
+          </div>
+        )}
 
-	// --- NOMOR HALAMAN DINAMIS ---
-	const currentPage = table.getState().pagination.pageIndex + 1;
-	const pageCount = table.getPageCount();
-	const pageNumbers = [];
-	for (let i = Math.max(1, currentPage - 1); i <= Math.min(pageCount, currentPage + 1); i++) {
-		pageNumbers.push(i);
-	}
+        <Table>
+          <TableHeader className="bg-muted/50">
+            {table.getHeaderGroups().map(headerGroup => (
+              <TableRow key={headerGroup.id}>
+                {headerGroup.headers.map(header => (
+                  <TableHead key={header.id} className="font-semibold text-foreground">
+                    {flexRender(header.column.columnDef.header, header.getContext())}
+                  </TableHead>
+                ))}
+              </TableRow>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {table.getRowModel().rows.length ? (
+              table.getRowModel().rows.map(row => (
+                <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
+                  {row.getVisibleCells().map(cell => (
+                    <TableCell key={cell.id} className="py-3">
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : (
+              !loading && (
+                <TableRow>
+                  <TableCell colSpan={columns.length} className="h-48 text-center">
+                    <div className="flex flex-col items-center justify-center text-muted-foreground">
+                      <Inbox className="h-10 w-10 mb-2 opacity-50" />
+                      <p>Tidak ada data ditemukan</p>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )
+            )}
+          </TableBody>
+        </Table>
+      </div>
 
-	return (
-		<div>
-			<div className="flex items-center py-4">
-				<Input
-					placeholder="Cari semua kolom..."
-					value={filtering}
-					onChange={(event) => setFiltering(event.target.value)}
-					className="max-w-sm"
-				/>
-			</div>
-			<div className="rounded-md border-2 border-foreground ">
-				<Table>
-					<TableHeader>
-						{table.getHeaderGroups().map((headerGroup) => (
-							<TableRow key={headerGroup.id}>
-								{headerGroup.headers.map((header) => (
-									<TableHead key={header.id}>
-										{header.isPlaceholder ? null : (
-											<Button
-												variant="ghost"
-												onClick={header.column.getToggleSortingHandler()}
-												disabled={!header.column.getCanSort()} // Nonaktifkan tombol jika kolom tidak bisa disort
-												className={!header.column.getCanSort() ? "cursor-default" : ""}
-											>
-												{flexRender(header.column.columnDef.header, header.getContext())}
-
-												{/* Tampilkan ikon secara dinamis berdasarkan status sorting */}
-												{header.column.getCanSort() && (
-													{
-														'asc': <ArrowUp className="ml-2 h-4 w-4" />,
-														'desc': <ArrowDown className="ml-2 h-4 w-4" />,
-													}[header.column.getIsSorted()] ?? <ArrowUpDown className="ml-2 h-4 w-4 opacity-30" />
-												)}
-											</Button>
-										)}
-									</TableHead>
-								))}
-							</TableRow>
-						))}
-					</TableHeader>
-					<TableBody>
-						{table.getRowModel().rows?.length ? (
-							table.getRowModel().rows.map((row) => (
-								<TableRow key={row.id}>
-									{row.getVisibleCells().map((cell) => (
-										<TableCell key={cell.id}>
-											{flexRender(cell.column.columnDef.cell, cell.getContext())}
-										</TableCell>
-									))}
-								</TableRow>
-							))
-						) : (
-							<TableRow>
-								<TableCell colSpan={columns.length} className="h-24 text-center">
-									Tidak ada data.
-								</TableCell>
-							</TableRow>
-						)}
-					</TableBody>
-				</Table>
-			</div>
-
-			{/* === BAGIAN PAGINATION === */}
-			<div className="flex items-center justify-between space-x-2 py-4">
-				<div className="text-sm text-muted-foreground">
-					Halaman {table.getState().pagination.pageIndex + 1} dari {table.getPageCount()}
-				</div>
-				<Pagination className="mx-0 w-fit">
-					<PaginationContent>
-						<PaginationItem>
-							<PaginationPrevious
-								onClick={() => table.previousPage()}
-								disabled={!table.getCanPreviousPage()}
-								className={!table.getCanPreviousPage() ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-							/>
-						</PaginationItem>
-
-						{pageNumbers.map(page => (
-							<PaginationItem key={page}>
-								<PaginationLink
-									onClick={() => table.setPageIndex(page - 1)}
-									isActive={currentPage === page}
-									className="cursor-pointer"
-								>
-									{page}
-								</PaginationLink>
-							</PaginationItem>
-						))}
-
-						<PaginationItem>
-							<PaginationNext
-								onClick={() => table.nextPage()}
-								disabled={!table.getCanNextPage()}
-								className={!table.getCanNextPage() ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-							/>
-						</PaginationItem>
-					</PaginationContent>
-				</Pagination>
-			</div>
-		</div>
-	)
+      {/* Pagination Controls */}
+      {meta.total_items > 0 && (
+        <div className="flex items-center justify-between px-2">
+          <div className="text-sm text-muted-foreground">
+            Hal <strong>{meta.current_page}</strong> dari <strong>{meta.last_page}</strong> 
+            <span className="ml-1 hidden sm:inline">({meta.total_items} total data)</span>
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onPageChange(Math.max(1, meta.current_page - 1))}
+              disabled={meta.current_page === 1 || loading}
+            >
+              <ChevronLeft className="h-4 w-4 mr-1" /> Prev
+            </Button>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onPageChange(Math.min(meta.last_page, meta.current_page + 1))}
+              disabled={meta.current_page >= meta.last_page || loading}
+            >
+              Next <ChevronRight className="h-4 w-4 ml-1" />
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }

@@ -23,7 +23,7 @@ class MemberService
         $this->table_members = $this->wpdb->prefix . 'sig_members';
         $this->table_member_events = $this->wpdb->prefix . 'sig_member_events';
         $this->table_events = $this->wpdb->prefix . 'sig_events';
-        
+
         $this->event_service = new EventService();
         $this->setting_service = new SettingsService();
     }
@@ -156,74 +156,100 @@ class MemberService
     public function get_paginated_members(array $args): array
     {
         $page = max(1, (int) ($args['page'] ?? 1));
-        $perPage = min(50, max(10, (int) ($args['per_page'] ?? 20)));
+        $perPage = min(50, max(10, (int) ($args['per_page'] ?? 10)));
         $offset = ($page - 1) * $perPage;
 
-        $where = ["m.deleted_at IS NULL", "m.status = 'verified'"];
+        $where = ["m.deleted_at IS NULL AND m.status = 'verified'"];
         $params = [];
 
-        // Filter event
+        // 1. Filter Search (Nama, No HP, atau Alamat)
+        if (!empty($args['search'])) {
+            $search = '%' . $this->wpdb->esc_like($args['search']) . '%';
+            $where[] = "(m.name LIKE %s OR m.phone_number LIKE %s OR m.full_address LIKE %s)";
+            $params[] = $search;
+            $params[] = $search;
+            $params[] = $search;
+        }
+
+
+        // 2. Filter Event
         if (!empty($args['event_id'])) {
-            $where[] = "
-            EXISTS (
-                SELECT 1
-                FROM {$this->table_member_events} me
-                WHERE me.member_id = m.id
-                  AND me.event_id = %d
-                  AND me.status = 'verified'
-                  AND me.deleted_at IS NULL
-            )
-        ";
+            $where[] = "EXISTS (
+            SELECT 1 FROM {$this->table_member_events} me
+            WHERE me.member_id = m.id
+            AND me.event_id = %d
+            AND me.status = 'verified'
+            AND me.deleted_at IS NULL
+        )";
             $params[] = (int) $args['event_id'];
         }
 
-        // Filter district
-        if (!empty($args['district_id'])) {
+        // 3. Filter Region (Seamless integration with Map)
+        if (!empty($args['village_id'])) {
+            $where[] = "m.village_id = %s";
+            $params[] = $args['village_id'];
+        } elseif (!empty($args['district_id'])) {
             $where[] = "m.district_id = %s";
             $params[] = $args['district_id'];
         }
 
-        // Filter village
-        if (!empty($args['village_id'])) {
-            $where[] = "m.village_id = %s";
-            $params[] = $args['village_id'];
-        }
-
         $whereSql = implode(' AND ', $where);
 
-        // DATA QUERY
-        $sql = "
-        SELECT
-            m.*
-        FROM {$this->table_members} m
-        WHERE {$whereSql}
-        ORDER BY m.created_at DESC
-        LIMIT %d OFFSET %d
-    ";
+        // Query Data
+        $selectSql = "
+            SELECT 
+                m.*, 
+                (
+                    SELECT COUNT(id) 
+                    FROM {$this->table_member_events} me_count 
+                    WHERE me_count.member_id = m.id 
+                    AND me_count.status = 'verified' 
+                    AND me_count.deleted_at IS NULL
+                ) as event_count,
+                (
+                    SELECT 
+                        GROUP_CONCAT(DISTINCT event_id SEPARATOR ',') as event_ids
+                    FROM {$this->table_member_events} me_events 
+                    WHERE me_events.member_id = m.id 
+                    AND me_events.status = 'verified' 
+                    AND me_events.deleted_at IS NULL
+                ) as event_ids
+            FROM {$this->table_members} m
+        ";
 
-        $params[] = $perPage;
-        $params[] = $offset;
+        $sql = "{$selectSql} WHERE {$whereSql} ORDER BY m.created_at DESC LIMIT %d OFFSET %d";
 
-        $dataSql = $this->wpdb->prepare($sql, ...$params);
-        $data = $this->wpdb->get_results($dataSql, ARRAY_A);
+        // Gabungkan params
+        $query_params = array_merge($params, [$perPage, $offset]);
 
-        // COUNT QUERY (TANPA LIMIT)
-        $countSql = "
-        SELECT COUNT(*)
-        FROM {$this->table_members} m
-        WHERE {$whereSql}
-    ";
+        $data = $this->wpdb->get_results(
+            $this->wpdb->prepare($sql, ...$query_params),
+            ARRAY_A
+        );
 
-        $countSql = $this->wpdb->prepare($countSql, ...array_slice($params, 0, -2));
-        $total = (int) $this->wpdb->get_var($countSql);
+        foreach ($data as &$row) {
+            if (!empty($row['event_ids'])) {
+                $row['event_ids'] = explode(',', $row['event_ids']);
+            } else {
+                $row['event_ids'] = [];
+            }
+        }
+        unset($row);
+
+        // Query Total (Tanpa Limit)
+        $countSql = "SELECT COUNT(*) FROM {$this->table_members} m WHERE {$whereSql}";
+        // Gunakan params tanpa limit/offset
+        $total = (int) $this->wpdb->get_var(
+            $this->wpdb->prepare($countSql, ...$params)
+        );
 
         return [
             'data' => $data,
             'meta' => [
-                'page' => $page,
+                'current_page' => $page,
                 'per_page' => $perPage,
-                'total' => $total,
-                'total_pages' => (int) ceil($total / $perPage),
+                'total_items' => $total,
+                'last_page' => (int) ceil($total / $perPage),
             ]
         ];
     }
@@ -232,7 +258,7 @@ class MemberService
     {
         $limit = $filters['limit'] ?? 10;
 
-        $where = "m.status = 'verified' AND me.status = 'verified'";
+        $where = "m.status = 'verified' AND me.status = 'verified' AND me.deleted_at IS NULL";
         $params = [];
 
         if (!empty($filters['event_id'])) {
@@ -293,7 +319,7 @@ class MemberService
         $silver = $settings['badge_thresholds']['silver'];
         $bronze = $settings['badge_thresholds']['bronze'];
 
-       $sql = "
+        $sql = "
             SELECT
                 label,
                 COUNT(*) AS value

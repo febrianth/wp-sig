@@ -35,7 +35,7 @@ class MemberApiController
         register_rest_route('sig/v1', '/analysis/events', [
             'methods' => 'GET',
             'callback' => [$this, 'handle_analysis_events'],
-            // 'permission_callback' => [$this, 'admin_permissions_check'],
+            'permission_callback' => [$this, 'admin_permissions_check'],
         ]);
 
         register_rest_route('sig/v1', '/analysis/badges', [
@@ -43,7 +43,6 @@ class MemberApiController
             'callback' => [$this, 'handle_analysis_badges'],
             'permission_callback' => [$this, 'admin_permissions_check'],
         ]);
-
 
         // Rute untuk satu member (Update & Delete)
         register_rest_route('sig/v1', '/members/(?P<id>\\d+)', [
@@ -81,6 +80,7 @@ class MemberApiController
     public function get_members(WP_REST_Request $request)
     {
         $result = $this->member_service->get_paginated_members([
+            'search' => $request->get_param('search'),
             'page' => $request->get_param('page'),
             'per_page' => $request->get_param('per_page'),
             'event_id' => $request->get_param('event_id'),
