@@ -75,12 +75,16 @@ function RegionMap({
                 const cleanedAggregatedData = Object.fromEntries(
                     Object.entries(aggregatedData || {})
                         .filter(([key]) => key !== '' && key !== null)
+                        .map(([key, value]) => [key, Number(value) || 0])
                 );
 
-                const maxCount = d3.max(Object.values(cleanedAggregatedData)) || 0;
+                const values = Object.values(cleanedAggregatedData).filter(v => Number.isFinite(v));
+                const maxCount = values.length ? d3.max(values) : 0;
+
                 const colorScale = d3.scaleLinear()
                     .domain([0, maxCount])
-                    .range(['#eff3ff', '#08519c']);
+                    .range(['#eff3ff', '#08519c'])
+                    .clamp(true);
 
                 // Info luar daerah
                 if (!filterByCode && (luarDaerahCount > 0 || unmappedCount > 0)) {
@@ -135,7 +139,7 @@ function RegionMap({
                             filterByCode,
                             districtId
                         });
-                        const count = cleanedAggregatedData[key] || 0;
+                        const count = Number(cleanedAggregatedData[key]) || 0;
                         return count === 0 ? '#f0f0f0' : colorScale(count);
                     })
                     .style('cursor', onRegionClick ? 'pointer' : 'default')
@@ -145,7 +149,7 @@ function RegionMap({
                     .on('mouseover', function (event, d) {
                         const geoId = d.properties[idKey];
                         const key = buildLookupKey({ geoId, filterByCode, districtId });
-                        const count = cleanedAggregatedData[key] || 0;
+                        const count = Number(cleanedAggregatedData[key]) || 0;
 
                         setTooltip({
                             visible: true,

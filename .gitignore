@@ -2,10 +2,6 @@
 /vendor/
 /node_modules/
 
-# data prep
-/scripts/
-release.js
-
 # Hasil Build
 /build/
 
