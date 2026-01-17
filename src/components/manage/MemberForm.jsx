@@ -98,14 +98,27 @@ function MemberForm({ initialData, settings, onSave, onCancel, allEvents }) {
     });
 
     useEffect(() => {
-        if (initialData) {
-            setFormData({
-                ...initialData,
-                is_outside_region: Number(initialData.is_outside_region) || 0,
-                event_ids: initialData.event_ids || [],
-            });
-        }
+        if (!initialData) return;
+
+        setFormData(prev => ({
+            ...prev,
+            ...initialData,
+            district_id: initialData.district_id ?? "",
+            is_outside_region: Number(initialData.is_outside_region) || 0,
+            event_ids: initialData.event_ids || [],
+            village_id: "",
+        }));
     }, [initialData]);
+
+    useEffect(() => {
+        if (!initialData) return;
+        if (!formData.district_id) return;
+
+        setFormData(prev => ({
+            ...prev,
+            village_id: initialData.village_id ?? "",
+        }));
+    }, [formData.district_id]);
 
     const handleOutsideRegionChange = (checked) => {
         const newValue = checked ? 1 : 0;
@@ -145,20 +158,20 @@ function MemberForm({ initialData, settings, onSave, onCancel, allEvents }) {
     const districts =
         settings?.map_data?.districts
             ? Object.entries(settings.map_data.districts).map(([id, name]) => ({
-                  value: id,
-                  label: name,
-              }))
+                value: id,
+                label: name,
+            }))
             : [];
 
     const villages =
         settings?.map_data?.villages
             ? Object.entries(settings.map_data.villages).map(
-                  ([id, villageObj]) => ({
-                      value: id,
-                      label: villageObj.name,
-                      districtId: villageObj.parent_district,
-                  })
-              )
+                ([id, villageObj]) => ({
+                    value: id,
+                    label: villageObj.name,
+                    districtId: villageObj.parent_district,
+                })
+            )
             : [];
 
     const filteredVillages = formData.district_id

@@ -76,7 +76,7 @@ function Dashboard() {
         const initData = async () => {
             try {
                 const headers = { 'X-WP-Nonce': WP_DATA.nonce };
-                const [sets, evs, sums] = await Promise.all([
+                const [sets, evs, sums] = await Promise.all([ 
                     fetch(WP_DATA.api_url + 'settings', { headers }).then(r => r.json()),
                     fetch(WP_DATA.api_url + 'events', { headers }).then(r => r.json()),
                     fetch(WP_DATA.api_url + 'members/summary', { headers }).then(r => r.json()),
