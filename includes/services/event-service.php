@@ -1,7 +1,7 @@
 <?php
 require_once WP_SIG_PLUGIN_PATH . 'includes/services/setting-service.php';
 /**
- * Menangani semua operasi data untuk tabel Events.
+ * Handles all data operations for the Events table.
  */
 class EventService
 {
@@ -10,11 +10,11 @@ class EventService
     private $table_name;
     private $settings_service;
 
-    public function __construct()
+    public function __construct($settings_service = null)
     {
         global $wpdb;
         $this->wpdb = $wpdb;
-        $this->settings_service = new SettingsService();
+        $this->settings_service = $settings_service ?? new SettingsService();
         $this->table_name = $this->wpdb->prefix . 'sig_events';
     }
 
@@ -26,7 +26,9 @@ class EventService
     {
         $event_name = sanitize_text_field($event_name);
         $date_obj = date_create($event_date);
-        if (!$date_obj) return false;
+        if (!$date_obj) {
+            return new WP_Error('invalid_date', 'Format tanggal tidak valid: ' . $event_date, ['status' => 400]);
+        }
 
         // Atur started_at ke awal hari, end_at ke akhir hari
         $started_at = date_format($date_obj, 'Y-m-d 00:00:00');
@@ -76,15 +78,13 @@ class EventService
         $events_table = $this->table_name;
         $member_events_table = $this->wpdb->prefix . 'sig_member_events';
 
-        $sql = $this->wpdb->prepare(
-            "SELECT e.event_name, e.end_at, COUNT(me.id) as total_attendees
+        $sql = "SELECT e.event_name, e.end_at, COUNT(me.id) as total_attendees
              FROM {$events_table} AS e
              LEFT JOIN {$member_events_table} AS me ON e.id = me.event_id AND me.status = 'verified' AND me.deleted_at IS NULL
              WHERE e.status = 0 AND e.deleted_at IS NULL
              GROUP BY e.id
              ORDER BY e.end_at DESC
-             LIMIT 3"
-        );
+             LIMIT 3";
         return $this->wpdb->get_results($sql, ARRAY_A);
     }
 
@@ -95,9 +95,7 @@ class EventService
     public function get_active_api_form_details()
     {
         $event = $this->wpdb->get_row(
-            $this->wpdb->prepare(
-                "SELECT * FROM {$this->table_name} WHERE status = 1 AND deleted_at IS NULL LIMIT 1"
-            ),
+            "SELECT * FROM {$this->table_name} WHERE status = 1 AND deleted_at IS NULL LIMIT 1",
             ARRAY_A
         );
         $current_settings = $this->settings_service->get_settings();
@@ -107,7 +105,7 @@ class EventService
             $member_events_table = $this->wpdb->prefix . 'sig_member_events';
 
 
-            if ($current_settings['registration_flow_mode'] == 'qr_once') {
+            if ($current_settings['registration_flow_mode'] === 'qr_once') {
                 $event['pending_members'] = $this->wpdb->get_results("
                     SELECT *
                     FROM {$members_table}
@@ -135,18 +133,21 @@ class EventService
                     ),
                     ARRAY_A
                 );
-            } else if ($current_settings['registration_flow_mode'] == 'manual_or_repeat') {
-                $event['pending_attendance_manual'] = $this->wpdb->get_results("
-                    SELECT 
+            } else if ($current_settings['registration_flow_mode'] === 'manual_or_repeat') {
+                $event['pending_attendance_manual'] = $this->wpdb->get_results(
+                    $this->wpdb->prepare("
+                    SELECT
                         m.*,
                         me.status AS attendance_status
                     FROM {$members_table} AS m
                     INNER JOIN {$member_events_table} AS me
                         ON m.id = me.member_id
-                    WHERE me.event_id = {$event['id']}
-                      AND me.status IN ('pending', 'rejected') 
+                    WHERE me.event_id = %d
+                      AND me.status IN ('pending', 'rejected')
                       AND m.deleted_at IS NULL
                     ORDER BY m.created_at DESC",
+                        $event['id']
+                    ),
                     ARRAY_A
                 );
             }
@@ -157,9 +158,7 @@ class EventService
     public function get_active_api_form_details_public()
     {
         $event = $this->wpdb->get_row(
-            $this->wpdb->prepare(
-                "SELECT * FROM {$this->table_name} WHERE status = 1 AND deleted_at IS NULL LIMIT 1"
-            ),
+            "SELECT * FROM {$this->table_name} WHERE status = 1 AND deleted_at IS NULL LIMIT 1",
             ARRAY_A
         );
 
@@ -322,11 +321,17 @@ class EventService
             ['event_id' => $event_id, 'status' => 'pending', 'deleted_at' => null]
         );
 
-        $this->wpdb->update(
-            $this->wpdb->prefix . 'sig_members',
-            ['status' => 'verified', 'updated_at' => current_time('mysql', 1)],
-            ['deleted_at' => null, 'status' => 'pending']
-        );
+        // Verify only members associated with this event, not all pending members
+        $members_table = $this->wpdb->prefix . 'sig_members';
+        $member_events_table = $this->wpdb->prefix . 'sig_member_events';
+        $this->wpdb->query($this->wpdb->prepare(
+            "UPDATE {$members_table} m
+             INNER JOIN {$member_events_table} me ON m.id = me.member_id
+             SET m.status = 'verified', m.updated_at = %s
+             WHERE me.event_id = %d AND m.status = 'pending' AND m.deleted_at IS NULL",
+            current_time('mysql', 1),
+            $event_id
+        ));
 
         // Nonaktifkan event ini dari api_form
         $this->wpdb->update(

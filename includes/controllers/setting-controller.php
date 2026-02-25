@@ -9,9 +9,9 @@ class SettingsApiController
 
     private $settings_service;
 
-    public function __construct()
+    public function __construct($settings_service = null)
     {
-        $this->settings_service = new SettingsService();
+        $this->settings_service = $settings_service ?? new SettingsService();
     }
 
     /**
@@ -93,7 +93,8 @@ class SettingsApiController
 
     public function handle_upload(WP_REST_Request $request)
     {
-        $file = $_FILES['geojson_file'] ?? null;
+        $files = $request->get_file_params();
+        $file = $files['geojson_file'] ?? null;
         $type = sanitize_text_field($request->get_param('file_type'));
 
         if (!$file || empty($file['tmp_name'])) {
@@ -185,23 +186,5 @@ class SettingsApiController
     public function admin_permissions_check()
     {
         return current_user_can('manage_options');
-    }
-
-    /**
-     * Logged in Users.
-     * @return bool
-     */
-    public function logged_in_permissions_check()
-    {
-        return is_user_logged_in();
-    }
-
-    /**
-     * Public.
-     * @return bool
-     */
-    public function public_permissions_check()
-    {
-        return true;
     }
 }

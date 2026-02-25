@@ -14,7 +14,7 @@ class MemberService
     private $event_service;
     private $setting_service;
 
-    public function __construct()
+    public function __construct($event_service = null, $setting_service = null)
     {
         global $wpdb;
 
@@ -24,8 +24,8 @@ class MemberService
         $this->table_member_events = $this->wpdb->prefix . 'sig_member_events';
         $this->table_events = $this->wpdb->prefix . 'sig_events';
 
-        $this->event_service = new EventService();
-        $this->setting_service = new SettingsService();
+        $this->setting_service = $setting_service ?? new SettingsService();
+        $this->event_service = $event_service ?? new EventService($this->setting_service);
     }
 
     public function get_member_summary(?int $eventId): array
@@ -256,7 +256,7 @@ class MemberService
 
     public function top_events(array $filters = []): array
     {
-        $limit = $filters['limit'] ?? 10;
+        $limit = (int) ($filters['limit'] ?? 10);
 
         $where = "m.status = 'verified' AND me.status = 'verified' AND me.deleted_at IS NULL";
         $params = [];
@@ -286,8 +286,10 @@ class MemberService
             WHERE {$where}
             GROUP BY me.event_id
             ORDER BY value DESC
-            LIMIT {$limit}
+            LIMIT %d
         ";
+
+        $params[] = $limit;
 
         return $this->wpdb->get_results(
             $this->wpdb->prepare($sql, ...$params),
@@ -341,7 +343,6 @@ class MemberService
             ) t
             GROUP BY label
         ";
-        // die(var_dump($filters));
 
         $rows = $this->wpdb->get_results(
             $this->wpdb->prepare($sql, ...$params),
@@ -596,7 +597,7 @@ class MemberService
             ); // 409 Conflict
         }
 
-        if ($data['is_outside_region'] == 1) {
+        if ((int) $data['is_outside_region'] === 1) {
             $data['district_id'] = null;
             $data['village_id'] = null;
         } else {
@@ -616,7 +617,7 @@ class MemberService
             'full_address'        => sanitize_textarea_field($data['full_address']),
             'district_id'         => sanitize_text_field($data['district_id']),
             'village_id'          => sanitize_text_field($data['village_id']),
-            'is_outside_region'   => sanitize_text_field($data['is_outside_region']),
+            'is_outside_region'   => (int) $data['is_outside_region'],
         ];
 
         $success = $this->wpdb->insert($this->table_members, $formatted_data);
@@ -640,7 +641,7 @@ class MemberService
         $event_ids = $data['event_ids'] ?? [];
         unset($data['event_ids']); // Hapus dari array data member
 
-        if ($data['is_outside_region'] == 1) {
+        if ((int) $data['is_outside_region'] === 1) {
             $data['district_id'] = null;
             $data['village_id'] = null;
         } else {
@@ -653,14 +654,13 @@ class MemberService
             }
         }
 
-        // 2. Sanitasi data member
         $formatted_data = [
             'name'                => sanitize_text_field($data['name']),
             'full_address'        => sanitize_textarea_field($data['full_address']),
             'district_id'         => sanitize_text_field($data['district_id']),
             'phone_number'        => sanitize_text_field($data['phone_number']),
             'village_id'          => sanitize_text_field($data['village_id']),
-            'is_outside_region'   => sanitize_text_field($data['is_outside_region']),
+            'is_outside_region'   => (int) $data['is_outside_region'],
         ];
 
         $success = $this->wpdb->update($this->table_members, $formatted_data, ['id' => $id]);

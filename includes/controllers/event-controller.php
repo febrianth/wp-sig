@@ -1,5 +1,4 @@
 <?php
-// Make sure the path to your service file is correct
 require_once WP_SIG_PLUGIN_PATH . 'includes/services/event-service.php';
 
 /**
@@ -9,19 +8,18 @@ class EventApiController {
 
     private $event_service;
 
-    public function __construct() {
-        $this->event_service = new EventService();
+    public function __construct($event_service = null) {
+        $this->event_service = $event_service ?? new EventService();
     }
 
     /**
      * Registers all API routes for events.
      */
     public function register_routes() {
-        // Endpoint to GET all active events
         register_rest_route('sig/v1', '/events', [
             'methods'             => 'GET',
             'callback'            => [$this, 'get_events'],
-            'permission_callback' => [$this, 'permissions_check'],
+            'permission_callback' => [$this, 'admin_permissions_check'],
         ]);
     }
 
@@ -38,12 +36,11 @@ class EventApiController {
     }
 
     /**
-     * Permission check for all endpoints in this controller.
-     * Ensures only users who can manage options (administrators) can access it.
+     * Permission check: administrators only.
      *
-     * @return bool True if the user has permission, false otherwise.
+     * @return bool
      */
-    public function permissions_check() {
+    public function admin_permissions_check() {
         return current_user_can('manage_options');
     }
 }

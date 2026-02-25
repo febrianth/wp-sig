@@ -8,10 +8,10 @@ class EventScheduleApiController {
     private $member_service;
     private $settings_service;
 
-    public function __construct() {
-        $this->event_service = new EventService();
-        $this->member_service = new MemberService();
-        $this->settings_service = new SettingsService();
+    public function __construct($event_service = null, $member_service = null, $settings_service = null) {
+        $this->settings_service = $settings_service ?? new SettingsService();
+        $this->event_service = $event_service ?? new EventService($this->settings_service);
+        $this->member_service = $member_service ?? new MemberService($this->event_service, $this->settings_service);
     }
 
     public function register_routes() {
@@ -118,7 +118,7 @@ class EventScheduleApiController {
         }
 
         $check_double_checkin = $this->member_service->check_double_checkin($member_id, $event_id);
-        if ($check_double_checkin == true) {
+        if ($check_double_checkin === true) {
             return new WP_Error('already_checked_in', 'Anda sudah melakukan check-in untuk event ini.', ['status' => 409]);
         }
 
@@ -135,11 +135,11 @@ class EventScheduleApiController {
         $status = $params['status'] ?? 'verified'; // 'verified' atau 'rejected'
 
         $current_settings = $this->settings_service->get_settings();
-        if ($current_settings['registration_flow_mode'] == 'manual_or_repeat') {
+        if ($current_settings['registration_flow_mode'] === 'manual_or_repeat') {
             // update status & checkin langsung
             $result = $this->event_service->update_member_and_checkin_status($member_id, $status);
             
-        } else if ($current_settings['registration_flow_mode'] == 'qr_once') {
+        } else if ($current_settings['registration_flow_mode'] === 'qr_once') {
             // update status member saja
             $result = $this->event_service->update_member_status($member_id, $status);
         }

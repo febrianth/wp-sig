@@ -6,9 +6,9 @@ class MemberApiController
 
     private $member_service;
 
-    public function __construct()
+    public function __construct($member_service = null)
     {
-        $this->member_service = new MemberService();
+        $this->member_service = $member_service ?? new MemberService();
     }
 
     public function register_routes()
@@ -190,23 +190,5 @@ class MemberApiController
     public function admin_permissions_check()
     {
         return current_user_can('manage_options');
-    }
-
-    /**
-     * Logged in Users.
-     * @return bool
-     */
-    public function logged_in_permissions_check()
-    {
-        return is_user_logged_in();
-    }
-
-    /**
-     * Public.
-     * @return bool
-     */
-    public function public_permissions_check()
-    {
-        return true;
     }
 }

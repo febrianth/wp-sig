@@ -8,10 +8,10 @@ class ImportService
     private $member_service;
     private $event_service;
 
-    public function __construct()
+    public function __construct($member_service = null, $event_service = null)
     {
-        $this->member_service = new MemberService();
-        $this->event_service = new EventService(); // Inisialisasi service untuk event
+        $this->member_service = $member_service ?? new MemberService();
+        $this->event_service = $event_service ?? new EventService();
     }
 
     /**
@@ -35,6 +35,12 @@ class ImportService
             $errors = [];
             
             foreach ($rows as $index => $row) {
+                if (count($header) !== count($row)) {
+                    $failure_count++;
+                    $errors[] = "Baris " . ($index + 2) . ": Jumlah kolom tidak sesuai dengan header.";
+                    continue;
+                }
+
                 $row_data = array_combine($header, $row);
 
                 $member_name = $row_data['name'] ?? null;

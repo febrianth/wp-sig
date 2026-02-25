@@ -1,5 +1,6 @@
 import { Routes, Route } from 'react-router-dom';
 import { Toaster } from './components/ui/toaster';
+import ErrorBoundary from './components/ErrorBoundary';
 
 import Dashboard from './pages/Dashboard';
 import Home from './pages/Home';
@@ -19,6 +20,7 @@ function App() {
     return (
         <>
           <QueryClientProvider client={queryClient}>
+            <ErrorBoundary>
             <Navbar />
             <main className="px-4">
                 <Routes>
@@ -27,15 +29,15 @@ function App() {
                     <Route path="/make-event" element={<EventPage />} />
                     <Route path="/absensi" element={<AttendancePage />} />
 
-                    {/* 3. Buat Rute Bersarang untuk Pengaturan */}
                     <Route path="/settings" element={<SettingsLayout />}>
-                        <Route index element={<GeneralSettings />} /> {/* Halaman default untuk /settings */}
+                        <Route index element={<GeneralSettings />} />
                         <Route path="import" element={<ImportPage />} />
                     </Route>
                     <Route path="/member/:memberId" element={<MemberDetailPage />} />
                 </Routes>
                 <Toaster duration={3000} />
             </main>
+            </ErrorBoundary>
             </QueryClientProvider>
         </>
     );

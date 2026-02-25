@@ -3,13 +3,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { XCircle } from 'lucide-react';
 import CountdownTimer from '@/components/events/countDownTimer';
-import { Checkbox } from "@/components/ui/checkbox";
+import RegionFields from '@/components/shared/RegionFields';
+import { useRegionFields, sanitizePhoneNumber } from '@/hooks/use-region-fields';
 
 function RegistrationForm({ onSuccess }) {
     const [formData, setFormData] = useState({
@@ -20,41 +20,30 @@ function RegistrationForm({ onSuccess }) {
         district_id: '',
         village_id: '',
     });
-    const [districts, setDistricts] = useState([]);
-    const [villages, setVillages] = useState([]);
-    const [filteredVillages, setFilteredVillages] = useState([]);
-    const [isLoading, setIsLoading] = useState(true); // Mulai loading untuk fetch event
+    const [mapData, setMapData] = useState(null);
+    const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [activeEvent, setActiveEvent] = useState(null); // State untuk event
+    const [activeEvent, setActiveEvent] = useState(null);
     const { toast } = useToast();
 
-    // Ambil data wilayah (kecamatan & desa) saat komponen dimuat
+    const { districts, filteredVillages } = useRegionFields(mapData, formData.district_id);
+
     useEffect(() => {
         async function fetchData() {
             try {
-                // Ambil data wilayah
                 const wilayahRes = await fetch(sig_public_data.api_url + 'wilayah-data');
                 const wilayahData = await wilayahRes.json();
                 if (!wilayahRes.ok) throw new Error('Gagal memuat data wilayah.');
 
-                const districtOptions = Object.entries(wilayahData.districts || {}).map(([id, name]) => ({ value: id, label: name }));
-                const villageOptions = Object.entries(wilayahData.villages || {}).map(([id, villageObj]) => ({
-                    value: id, label: villageObj.name, districtId: villageObj.parent_district
-                }));
-                setDistricts(districtOptions);
-                setVillages(villageOptions);
+                setMapData(wilayahData);
 
-                // Ambil data event aktif
                 const eventRes = await fetch(
                     sig_public_data.api_url + 'event-schedule-public',
-                    {
-                        headers: { 'X-WP-Nonce': sig_public_data.nonce }
-                    }
+                    { headers: { 'X-WP-Nonce': sig_public_data.nonce } }
                 );
                 const eventText = await eventRes.text();
                 const eventData = eventText ? JSON.parse(eventText) : null;
-                setActiveEvent(eventData); // Simpan event (bisa null)
-
+                setActiveEvent(eventData);
             } catch (err) {
                 setError(err.message);
             }
@@ -88,25 +77,23 @@ function RegistrationForm({ onSuccess }) {
             district_id: newValue ? '' : prev.district_id,
             village_id: newValue ? '' : prev.village_id,
         }));
-        if (checked) setFilteredVillages([]);
     };
 
     const handleChange = (e) => {
         const { id, value } = e.target;
         if (id === 'phone_number') {
-            setFormData(prev => ({ ...prev, [id]: value.replace(/[^0-9+]/g, '') }));
+            setFormData(prev => ({ ...prev, [id]: sanitizePhoneNumber(value) }));
         } else {
             setFormData(prev => ({ ...prev, [id]: value }));
         }
     };
 
-    const handleSelectChange = (id, value) => {
-        if (id === 'district_id') {
-            setFormData(prev => ({ ...prev, district_id: value, village_id: "" }));
-            setFilteredVillages(villages.filter(v => v.districtId === value));
-        } else {
-            setFormData(prev => ({ ...prev, [id]: value }));
-        }
+    const handleDistrictChange = (value) => {
+        setFormData(prev => ({ ...prev, district_id: value, village_id: "" }));
+    };
+
+    const handleVillageChange = (value) => {
+        setFormData(prev => ({ ...prev, village_id: value }));
     };
 
     const handleSubmit = async (e) => {
@@ -125,7 +112,7 @@ function RegistrationForm({ onSuccess }) {
             const result = await response.json();
             if (!response.ok) throw new Error(result.message || 'Registrasi gagal.');
 
-            onSuccess(result); // Kirim seluruh data sukses (termasuk ID) ke parent
+            onSuccess(result);
         } catch (error) {
             toast({ variant: "destructive", title: "Registrasi Gagal", description: error.message });
         }
@@ -160,10 +147,8 @@ function RegistrationForm({ onSuccess }) {
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-                {/* Tampilkan Countdown */}
                 <CountdownTimer startTime={activeEvent.started_at} endTime={activeEvent.end_at} />
 
-                {/* Tampilkan form */}
                 <form onSubmit={handleSubmit} className="space-y-4 pt-4">
                     <div className="space-y-1">
                         <Label htmlFor="name">Nama Lengkap (Wajib)</Label>
@@ -177,38 +162,17 @@ function RegistrationForm({ onSuccess }) {
                         <Label htmlFor="full_address">Alamat Lengkap</Label>
                         <Textarea id="full_address" onChange={handleChange} />
                     </div>
-                    <div className="flex items-center space-x-2">
-                        <Checkbox
-                            id="is_outside_region"
-                            checked={!!formData.is_outside_region}
-                            onCheckedChange={handleOutsideRegionChange}
-                        />
-                        <Label htmlFor="is_outside_region" className="text-sm font-medium">
-                            Saya berasal dari luar daerah
-                        </Label>
-                    </div>
-                    {!formData.is_outside_region && (
-                        <>
-                            <div className="space-y-1">
-                                <Label>Kecamatan</Label>
-                                <Select onValueChange={(value) => handleSelectChange('district_id', value)}>
-                                    <SelectTrigger><SelectValue placeholder="Pilih Kecamatan..." /></SelectTrigger>
-                                    <SelectContent>
-                                        {districts.map(d => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-1">
-                                <Label>Desa/Kelurahan</Label>
-                                <Select onValueChange={(value) => handleSelectChange('village_id', value)} disabled={!formData.district_id}>
-                                    <SelectTrigger><SelectValue placeholder="Pilih Desa..." /></SelectTrigger>
-                                    <SelectContent>
-                                        {filteredVillages.map(v => <SelectItem key={v.value} value={v.value}>{v.label}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </>
-                    )}
+
+                    <RegionFields
+                        isOutsideRegion={formData.is_outside_region}
+                        districtId={formData.district_id}
+                        villageId={formData.village_id}
+                        districts={districts}
+                        filteredVillages={filteredVillages}
+                        onOutsideRegionChange={handleOutsideRegionChange}
+                        onDistrictChange={handleDistrictChange}
+                        onVillageChange={handleVillageChange}
+                    />
 
                     <Button type="submit" disabled={isLoading} className="w-full">
                         {isLoading ? 'Mendaftar...' : 'Daftar Sekarang'}

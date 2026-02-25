@@ -39,10 +39,7 @@ class SettingsService
         ];
 
         $settings = get_option($this->option_name, []);
-        $settings = wp_parse_args($settings, $defaults);
-
-        $last_settings = get_option($this->option_name, []);
-        return $last_settings;
+        return wp_parse_args($settings, $defaults);
     }
 
     /**
@@ -55,76 +52,6 @@ class SettingsService
     {
         $sanitized_settings = $this->sanitize_settings_data($settings);
         return update_option($this->option_name, $sanitized_settings);
-    }
-
-    private $upload_context = ['is_active' => false, 'subdir' => ''];
-
-    /**
-     * Handles the upload of a GeoJSON file.
-     */
-    public function handle_geojson_upload($file, $file_type)
-    {
-        if (!function_exists('wp_handle_upload')) {
-            require_once ABSPATH . 'wp-admin/includes/file.php';
-        }
-
-        $current_settings = $this->get_settings();
-        if (!is_array($current_settings)) $current_settings = [];
-        $old_file_url = $current_settings['map_files'][$file_type] ?? null;
-
-        // 1. Atur konteks upload
-        $this->upload_context['is_active'] = true;
-        $this->upload_context['subdir'] = sanitize_key($file_type); // misal: 'villages' atau 'districts'
-
-        add_filter('upload_dir', [$this, 'custom_geojson_upload_dir']);
-        add_filter('upload_mimes', [$this, 'add_geojson_mime_type']);
-
-        $movefile = wp_handle_upload($file, ['test_form' => false]);
-
-        remove_filter('upload_dir', [$this, 'custom_geojson_upload_dir']);
-        remove_filter('upload_mimes', [$this, 'add_geojson_mime_type']);
-
-        // Reset konteks
-        $this->upload_context = ['is_active' => false, 'subdir' => ''];
-
-        if ($movefile && !isset($movefile['error'])) {
-            // Hapus file lama JIKA upload yang baru berhasil
-            if ($old_file_url) {
-                $old_file_path = str_replace(content_url(), WP_CONTENT_DIR, $old_file_url);
-                if (file_exists($old_file_path)) {
-                    @unlink($old_file_path);
-                }
-            }
-
-            // Simpan URL file yang baru
-            if (!isset($current_settings['map_files']) || !is_array($current_settings['map_files'])) {
-                $current_settings['map_files'] = [];
-            }
-            $current_settings['map_files'][$file_type] = $movefile['url'];
-            $this->save_settings($current_settings);
-
-            return ['success' => true, 'url' => $movefile['url']];
-        } else {
-            return ['success' => false, 'error' => $movefile['error'] ?? 'Unknown upload error.'];
-        }
-    }
-
-    /**
-     * Mengubah direktori upload ke subfolder khusus (villages/districts).
-     */
-    public function custom_geojson_upload_dir($dirs)
-    {
-        if (!$this->upload_context['is_active']) {
-            return $dirs;
-        }
-
-        $custom_subdir = 'sig-maps/' . $this->upload_context['subdir'];
-
-        $dirs['subdir'] = $custom_subdir;
-        $dirs['path'] = $dirs['basedir'] . '/' . $custom_subdir;
-        $dirs['url'] = $dirs['baseurl'] . '/' . $custom_subdir;
-
-        return $dirs;
     }
 
     public function process_uploaded_maps($file_urls, $key_mappings, $badge_thresholds, $registration_flow_mode)
@@ -213,17 +140,6 @@ class SettingsService
 
 
     /**
-     * Adds .geojson to the list of allowed mime types.
-     * This is the callback for the 'upload_mimes' filter.
-     */
-    public function add_geojson_mime_type($mimes)
-    {
-        // Allow .geojson files, mapping them to a safe 'application/json' mime type
-        $mimes['geojson'] = 'text/plain';
-        return $mimes;
-    }
-
-    /**
      * Membersihkan data sebelum disimpan.
      */
     private function sanitize_settings_data($settings)
@@ -265,6 +181,15 @@ class SettingsService
         $json_content = file_get_contents($file['tmp_name']);
         if (empty($json_content)) {
             return new WP_Error('empty_file', 'File GeoJSON kosong atau gagal dibaca.');
+        }
+
+        // Validate that the content is valid JSON with expected GeoJSON structure
+        $decoded = json_decode($json_content, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            return new WP_Error('invalid_json', 'File bukan JSON yang valid: ' . json_last_error_msg());
+        }
+        if (!isset($decoded['type']) || !isset($decoded['features']) || !is_array($decoded['features'])) {
+            return new WP_Error('invalid_geojson', 'File bukan format GeoJSON yang valid (harus memiliki "type" dan "features").');
         }
 
         // Hapus data lama untuk tipe yang sama

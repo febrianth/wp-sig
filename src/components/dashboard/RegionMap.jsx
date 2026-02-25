@@ -29,6 +29,7 @@ function RegionMap({
 }) {
     const svgRef = useRef(null);
     const containerRef = useRef(null);
+    const gradientIdRef = useRef(`legend-gradient-${Math.random().toString(36).slice(2, 9)}`);
     const [tooltip, setTooltip] = useState({ visible: false, content: '', x: 0, y: 0 });
 
     useEffect(() => {
@@ -122,7 +123,6 @@ function RegionMap({
                             .style('font-weight', 'bold')
                             .text(`Belum Memiliki Wilayah: ${unmappedCount - luarDaerahCount}`);
                     }
-                    console.log(luarDaerahCount)
                 }
 
                 svg.append('g')
@@ -180,7 +180,7 @@ function RegionMap({
 
                     const defs = svg.append('defs');
                     const gradient = defs.append('linearGradient')
-                        .attr('id', 'legend-gradient')
+                        .attr('id', gradientIdRef.current)
                         .attr('x1', '0%').attr('y1', '100%')
                         .attr('x2', '0%').attr('y2', '0%');
 
@@ -190,7 +190,7 @@ function RegionMap({
                     legend.append('rect')
                         .attr('width', 18)
                         .attr('height', legendHeight)
-                        .style('fill', 'url(#legend-gradient)')
+                        .style('fill', `url(#${gradientIdRef.current})`)
                         .attr('stroke', '#000');
 
                     legend.append('g')

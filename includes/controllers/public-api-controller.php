@@ -8,10 +8,10 @@ class PublicApiController
     private $member_service;
     private $event_service;
 
-    public function __construct()
+    public function __construct($member_service = null, $event_service = null)
     {
-        $this->member_service = new MemberService();
-        $this->event_service = new EventService();
+        $this->member_service = $member_service ?? new MemberService();
+        $this->event_service = $event_service ?? new EventService();
     }
 
     public function register_routes()
@@ -38,14 +38,9 @@ class PublicApiController
 
     public function handle_registration(WP_REST_Request $request)
     {
-        $nonce = $request->get_header('X-WP-Nonce');
-        if (!wp_verify_nonce($nonce, 'wp_rest')) {
-            return new WP_Error('rest_forbidden', 'Nonce tidak valid.', ['status' => 401]);
-        }
-
         $data = $request->get_json_params();
         $data['status'] = 'pending';
-        $data['event_ids'] = '';
+        $data['event_ids'] = [];
         
         if (empty($data['name']) || empty($data['phone_number'])) {
             return new WP_REST_Response(
@@ -55,7 +50,7 @@ class PublicApiController
         }
 
         if (
-            $data['is_outside_region'] == 0 &&
+            (int) $data['is_outside_region'] === 0 &&
             (empty($data['district_id']) || empty($data['village_id']))
         ) {
             return new WP_REST_Response(
@@ -76,11 +71,11 @@ class PublicApiController
 
         $current_active_valid_event = $this->event_service->get_active_api_form_details_public();
         
-        if ($current_active_valid_event['registration_flow_mode'] == 'manual_or_repeat') {
+        if ($current_active_valid_event['registration_flow_mode'] === 'manual_or_repeat') {
             // daftar langsung absen
             $existing_id = $this->member_service->find_or_create($data['name'], $data['phone_number'], $data);
             $result = $this->member_service->add_event_to_member($existing_id, $current_active_valid_event['id'], 'pending');
-        } else if ($current_active_valid_event['registration_flow_mode'] == 'qr_once') {
+        } else if ($current_active_valid_event['registration_flow_mode'] === 'qr_once') {
             // daftar doang, absen seterusnya via QR
             $result = $this->member_service->create($data);
         }

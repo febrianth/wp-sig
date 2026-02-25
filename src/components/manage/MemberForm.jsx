@@ -3,19 +3,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Check, ChevronsUpDown } from "lucide-react";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import RegionFields from "@/components/shared/RegionFields";
+import { useRegionFields, sanitizePhoneNumber } from "@/hooks/use-region-fields";
 
 function MultiSelectCombobox({ options, selected, onChange, placeholder }) {
     const [open, setOpen] = useState(false);
@@ -97,6 +91,11 @@ function MemberForm({ initialData, settings, onSave, onCancel, allEvents }) {
         event_ids: [],
     });
 
+    const { districts, filteredVillages } = useRegionFields(
+        settings?.map_data,
+        formData.district_id
+    );
+
     useEffect(() => {
         if (!initialData) return;
 
@@ -106,19 +105,9 @@ function MemberForm({ initialData, settings, onSave, onCancel, allEvents }) {
             district_id: initialData.district_id ?? "",
             is_outside_region: Number(initialData.is_outside_region) || 0,
             event_ids: initialData.event_ids || [],
-            village_id: "",
-        }));
-    }, [initialData]);
-
-    useEffect(() => {
-        if (!initialData) return;
-        if (!formData.district_id) return;
-
-        setFormData(prev => ({
-            ...prev,
             village_id: initialData.village_id ?? "",
         }));
-    }, [formData.district_id]);
+    }, [initialData]);
 
     const handleOutsideRegionChange = (checked) => {
         const newValue = checked ? 1 : 0;
@@ -134,16 +123,16 @@ function MemberForm({ initialData, settings, onSave, onCancel, allEvents }) {
         const { id, value } = e.target;
         setFormData((prev) => ({
             ...prev,
-            [id]: id === "phone_number" ? value.replace(/[^0-9+]/g, "") : value,
+            [id]: id === "phone_number" ? sanitizePhoneNumber(value) : value,
         }));
     };
 
-    const handleSelectChange = (id, value) => {
-        if (id === "district_id") {
-            setFormData((prev) => ({ ...prev, district_id: value, village_id: "" }));
-        } else {
-            setFormData((prev) => ({ ...prev, [id]: value }));
-        }
+    const handleDistrictChange = (value) => {
+        setFormData((prev) => ({ ...prev, district_id: value, village_id: "" }));
+    };
+
+    const handleVillageChange = (value) => {
+        setFormData((prev) => ({ ...prev, village_id: value }));
     };
 
     const handleEventsChange = (eventIds) => {
@@ -154,29 +143,6 @@ function MemberForm({ initialData, settings, onSave, onCancel, allEvents }) {
         value: event.id,
         label: event.event_name,
     }));
-
-    const districts =
-        settings?.map_data?.districts
-            ? Object.entries(settings.map_data.districts).map(([id, name]) => ({
-                value: id,
-                label: name,
-            }))
-            : [];
-
-    const villages =
-        settings?.map_data?.villages
-            ? Object.entries(settings.map_data.villages).map(
-                ([id, villageObj]) => ({
-                    value: id,
-                    label: villageObj.name,
-                    districtId: villageObj.parent_district,
-                })
-            )
-            : [];
-
-    const filteredVillages = formData.district_id
-        ? villages.filter((v) => v.districtId === formData.district_id)
-        : [];
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -210,59 +176,16 @@ function MemberForm({ initialData, settings, onSave, onCancel, allEvents }) {
                 />
             </div>
 
-            <div className="flex items-center space-x-2">
-                <Checkbox
-                    id="is_outside_region"
-                    checked={formData.is_outside_region === 1}
-                    onCheckedChange={handleOutsideRegionChange}
-                />
-                <Label htmlFor="is_outside_region" className="text-sm font-medium">
-                    Peserta berasal dari luar daerah
-                </Label>
-            </div>
-
-            {Number(formData.is_outside_region) === 0 && (
-                <>
-                    <div className="space-y-1">
-                        <Label htmlFor="district_id">Kecamatan</Label>
-                        <Select
-                            value={formData.district_id}
-                            onValueChange={(value) => handleSelectChange("district_id", value)}
-                        >
-                            <SelectTrigger>
-                                <SelectValue placeholder="Pilih Kecamatan..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {districts.map((d) => (
-                                    <SelectItem key={d.value} value={d.value}>
-                                        {d.label}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-
-                    <div className="space-y-1">
-                        <Label htmlFor="village_id">Desa/Kelurahan</Label>
-                        <Select
-                            value={formData.village_id}
-                            onValueChange={(value) => handleSelectChange("village_id", value)}
-                            disabled={!formData.district_id}
-                        >
-                            <SelectTrigger>
-                                <SelectValue placeholder="Pilih Desa..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {filteredVillages.map((v) => (
-                                    <SelectItem key={v.value} value={v.value}>
-                                        {v.label}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </>
-            )}
+            <RegionFields
+                isOutsideRegion={formData.is_outside_region}
+                districtId={formData.district_id}
+                villageId={formData.village_id}
+                districts={districts}
+                filteredVillages={filteredVillages}
+                onOutsideRegionChange={handleOutsideRegionChange}
+                onDistrictChange={handleDistrictChange}
+                onVillageChange={handleVillageChange}
+            />
 
             <div className="space-y-1">
                 <Label>Event yang Diikuti</Label>

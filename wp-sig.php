@@ -82,15 +82,6 @@ require_once plugin_dir_path( __FILE__ ) . 'vendor/autoload.php';
 register_activation_hook( __FILE__, 'sig_plugin_activate' );
 
 /**
- * The code that runs during plugin activation.
- * This action is documented in includes/class-wp-sig-activator.php
- */
-function activate_wp_sig() {
-	require_once plugin_dir_path( __FILE__ ) . 'includes/class-wp-sig-activator.php';
-	Wp_Sig_Activator::activate();
-}
-
-/**
  * The code that runs during plugin deactivation.
  * This action is documented in includes/class-wp-sig-deactivator.php
  */
@@ -99,7 +90,6 @@ function deactivate_wp_sig() {
 	Wp_Sig_Deactivator::deactivate();
 }
 
-register_activation_hook( __FILE__, 'activate_wp_sig' );
 register_deactivation_hook( __FILE__, 'deactivate_wp_sig' );
 
 /**

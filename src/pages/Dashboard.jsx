@@ -2,8 +2,8 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Import Select Shadcn
-import { ArrowLeft, PlusCircle, Search, Loader2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ArrowLeft, PlusCircle, Search } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -11,6 +11,7 @@ import MemberForm from '@/components/manage/MemberForm';
 import { generateColumns } from "./members/columns";
 import { DataTable } from "@/components/custom/DataTable";
 import { useToast } from "@/hooks/use-toast";
+import { useSettings, useEvents, useMemberSummary, useMembers, useSaveMember, useDeleteMember } from "@/hooks/use-api";
 import RegionMap from '@/components/dashboard/RegionMap';
 import AnalyzeCard from '@/components/dashboard/AnalyzeCard';
 
@@ -22,11 +23,6 @@ function useDebounce(value, delay) {
     }, [value, delay]);
     return debouncedValue;
 }
-
-// Pastikan global variable aman
-const WP_DATA = (typeof sig_plugin_data !== 'undefined')
-    ? sig_plugin_data
-    : { api_url: '', nonce: '' };
 
 function SetupCta() {
     return (
@@ -43,22 +39,11 @@ function SetupCta() {
 }
 
 function Dashboard() {
-    // --- Global State ---
-    const [settings, setSettings] = useState(null);
-    const [events, setEvents] = useState([]);
-    const [summary, setSummary] = useState(null);
-    const [loading, setLoading] = useState(true); // Loading awal dashboard
-
-    // --- Table State ---
-    const [members, setMembers] = useState([]);
-    const [meta, setMeta] = useState({ current_page: 1, last_page: 1, total_items: 0 });
-    const [tableLoading, setTableLoading] = useState(false);
-
     // --- Filter State ---
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState('');
-    const debouncedSearch = useDebounce(search, 500); // Tunggu 500ms
-    const [selectedEvent, setSelectedEvent] = useState("all"); // "all" string handling
+    const debouncedSearch = useDebounce(search, 500);
+    const [selectedEvent, setSelectedEvent] = useState("all");
 
     // --- Map State ---
     const [view, setView] = useState({ level: 'regency', code: null, parentCode: null });
@@ -71,109 +56,33 @@ function Dashboard() {
 
     const { toast } = useToast();
 
-    // 1. Fetch Initial Data
-    useEffect(() => {
-        const initData = async () => {
-            try {
-                const headers = { 'X-WP-Nonce': WP_DATA.nonce };
-                const [sets, evs, sums] = await Promise.all([ 
-                    fetch(WP_DATA.api_url + 'settings', { headers }).then(r => r.json()),
-                    fetch(WP_DATA.api_url + 'events', { headers }).then(r => r.json()),
-                    fetch(WP_DATA.api_url + 'members/summary', { headers }).then(r => r.json()),
-                ]);
+    // --- Data Fetching via TanStack Query ---
+    const { data: settings, isLoading: settingsLoading } = useSettings();
+    const { data: events = [], isLoading: eventsLoading } = useEvents();
+    const { data: summary } = useMemberSummary(selectedEvent);
+    const { data: membersData, isLoading: tableLoading } = useMembers({
+        page, search: debouncedSearch, eventId: selectedEvent, view,
+    });
 
-                setSettings(sets);
-                setEvents(Object.values(evs));
-                setSummary(sums);
-            } catch (err) {
-                console.error("Init Error", err);
-                toast({ variant: "destructive", title: "Gagal memuat data awal" });
-            } finally {
-                setLoading(false);
-            }
-        };
-        initData();
-    }, []);
+    const members = membersData?.data || [];
+    const meta = membersData?.meta || { current_page: 1, last_page: 1, total_items: 0 };
 
-    const fetchMembers = useCallback(async () => {
-        setTableLoading(true);
-        try {
-            const url = new URL(WP_DATA.api_url + 'members');
-            url.searchParams.set('page', page);
-            url.searchParams.set('per_page', 10);
+    const saveMember = useSaveMember();
+    const deleteMember = useDeleteMember();
 
-            if (debouncedSearch) url.searchParams.set('search', debouncedSearch);
-            if (selectedEvent && selectedEvent !== "all") url.searchParams.set('event_id', selectedEvent);
+    const loading = settingsLoading || eventsLoading;
 
-            // Integrasi Filter Wilayah dari Map
-            if (view.level === 'district' && view.code) {
-                url.searchParams.set('district_id', view.code);
-            } else if (view.level === 'village' && view.code) {
-                // Asumsi format code di map: 'districtId.villageId' atau sejenisnya
-                // Sesuaikan logika ini dengan format geojson Anda
-                const villageId = view.code.includes('.') ? view.code : `${view.parentCode}.${view.code}`;
-                url.searchParams.set('village_id', villageId);
-            }
-
-            const res = await fetch(url, { headers: { 'X-WP-Nonce': WP_DATA.nonce } });
-            const json = await res.json();
-
-            setMembers(json.data || []);
-            setMeta(json.meta || { current_page: 1, last_page: 1, total_items: 0 });
-        } catch (error) {
-            console.error("Member Fetch Error", error);
-        } finally {
-            setTableLoading(false);
-        }
-    }, [page, debouncedSearch, selectedEvent, view]);
-
-    // 2. Fetch Summary saat Event berubah
-    const fetchSummary = useCallback(async () => {
-        if (!summary) return; // Jangan fetch jika data awal belum siap
-
-        try {
-            const url = new URL(WP_DATA.api_url + 'members/summary');
-            if (selectedEvent) {
-                url.searchParams.set('event_id', selectedEvent);
-            }
-
-            const res = await fetch(url, {
-                headers: { 'X-WP-Nonce': WP_DATA.nonce }
-            });
-
-            if (!res.ok) throw new Error("Gagal update summary");
-
-            const data = await res.json();
-            setSummary(data);
-        } catch (error) {
-            console.error("Error fetching summary:", error);
-        }
-    }, [selectedEvent]);
-
-    // Initial Load
-    useEffect(() => {
-        fetchMembers();
-    }, [fetchMembers]);
-
-    // Effect: Reset page ke 1 jika Search/Event/Region berubah (kecuali page itu sendiri)
+    // Reset page when filters change
     useEffect(() => {
         setPage(1);
     }, [debouncedSearch, selectedEvent, view]);
 
-
-    // Trigger Summary Update ketika filter event berubah
-    useEffect(() => {
-        if (!loading) {
-            fetchSummary();
-        }
-    }, [fetchSummary, loading]); // Added logic fix
-
-    // Reset Map Loading ketika view berubah
+    // Reset map loading when view changes
     useEffect(() => {
         setIsMapLoading(true);
     }, [view]);
 
-    // Computed: Aggregated Data untuk Map
+    // Computed: Aggregated data for map
     const aggregatedData = useMemo(() => {
         if (!summary) return {};
 
@@ -215,38 +124,16 @@ function Dashboard() {
 
     const handleSave = async (formData) => {
         const isEditing = !!formData.id;
-        const url = isEditing
-            ? `${WP_DATA.api_url}members/${formData.id}`
-            : `${WP_DATA.api_url}members`;
-        const method = isEditing ? "PUT" : "POST";
-
         try {
-            const response = await fetch(url, {
-                method,
-                headers: {
-                    "X-WP-Nonce": WP_DATA.nonce,
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify(formData),
-            });
-
-            const result = await response.json();
-
-            if (!response.ok) {
-                throw new Error(result?.message || "Terjadi kesalahan saat menyimpan data.");
-            }
-
+            await saveMember.mutateAsync(formData);
             toast({
                 title: "Sukses!",
                 description: isEditing
                     ? `Data member "${formData.name}" berhasil diperbarui.`
                     : `Data member "${formData.name}" berhasil disimpan.`,
             });
-
             setIsDialogOpen(false);
             setEditingMember(null);
-            await fetchMembers(); // Refresh data
-
         } catch (error) {
             toast({
                 variant: "destructive",
@@ -259,21 +146,12 @@ function Dashboard() {
     const handleDelete = async () => {
         if (!deletingMember) return;
         try {
-            const response = await fetch(
-                `${WP_DATA.api_url}members/${deletingMember.id}`,
-                {
-                    method: "DELETE",
-                    headers: { "X-WP-Nonce": WP_DATA.nonce },
-                }
-            );
-            if (!response.ok) throw new Error("Gagal menghapus data.");
-
+            await deleteMember.mutateAsync(deletingMember.id);
             toast({
                 title: "Sukses!",
                 description: `Data member "${deletingMember.name}" telah berhasil dihapus.`,
             });
             setDeletingMember(null);
-            await fetchMembers();
         } catch (error) {
             toast({
                 variant: "destructive",
@@ -289,7 +167,7 @@ function Dashboard() {
         settings: settings
     }), [settings]);
 
-    // Logic untuk Properti Map & Judul Halaman
+    // Map props & page title
     const { pageTitle, mapProps, displayedTotal } = useMemo(() => {
         if (!settings?.map_files) return { pageTitle: '', mapProps: {}, displayedTotal: 0 };
 
@@ -297,7 +175,6 @@ function Dashboard() {
         let props = {};
         let total = 0;
 
-        // Hitung Total Display
         if (summary) {
             if (view.level === 'village') {
                 const village = summary.by_village.find(v => v.village_id === `${view.parentCode}.${view.code}`);
@@ -310,7 +187,6 @@ function Dashboard() {
             }
         }
 
-        // Tentukan Props Map berdasarkan Level
         switch (view.level) {
             case 'district':
                 title = `Peta Kecamatan ${settings.map_data?.districts?.[view.code] || ''}`;
@@ -336,11 +212,11 @@ function Dashboard() {
                     filterKey: settings.map_keys.village_id,
                     districtId: view.parentCode,
                     districtKey: settings.map_keys.village_parent_district_id,
-                    onRegionClick: null, // Akhir level, tidak bisa klik lagi
+                    onRegionClick: null,
                 };
                 break;
 
-            default: // regency
+            default:
                 title = 'Visualisasi Peta Daerah';
                 props = {
                     geojsonUrl: settings.map_files.districts,
@@ -354,7 +230,7 @@ function Dashboard() {
         return { pageTitle: title, mapProps: props, displayedTotal: total };
     }, [settings, view, summary, handleRegionClick]);
 
-    // --- RENDER START ---
+    // --- RENDER ---
 
     if (loading) return <div className="p-10 text-center">Memuat data...</div>;
 
@@ -365,7 +241,6 @@ function Dashboard() {
     return (
         <div className="space-y-8">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-                {/* Bagian Maps */}
                 <div className='lg:col-span-2'>
                     <Card className="h-[700px] flex flex-col bg-[linear-gradient(to_right,#8080804D_1px,transparent_1px),linear-gradient(to_bottom,#80808090_1px,transparent_1px)] [background-size:40px_40px] bg-secondary-background">
                         <CardHeader>
@@ -414,16 +289,14 @@ function Dashboard() {
                     </Card>
                 </div>
 
-                {/* Bagian Donut Chart & Analytics */}
                 <div className='lg:col-span-1'>
                     <AnalyzeCard
                         view={view}
-                        summaryData={summary} // Pass summary jika diperlukan oleh komponen anak
+                        summaryData={summary}
                     />
                 </div>
             </div>
 
-            {/* Bagian Daftar Member */}
             <div className="space-y-4">
                 <div className="flex flex-col md:flex-row justify-between items-end md:items-center gap-4">
                     <div>
@@ -433,7 +306,6 @@ function Dashboard() {
                         </p>
                     </div>
 
-                    {/* Controls Bar */}
                     <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
                         <div className="relative w-full sm:w-[250px]">
                             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -463,17 +335,15 @@ function Dashboard() {
                     </div>
                 </div>
 
-                {/* Table Component */}
                 <DataTable
                     columns={columns}
                     data={members}
                     meta={meta}
                     onPageChange={setPage}
-                    loading={tableLoading} // Pass loading state
+                    loading={tableLoading}
                 />
             </div>
 
-            {/* Dialog untuk Tambah/Edit Member */}
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogContent>
                     <DialogHeader>
@@ -493,7 +363,6 @@ function Dashboard() {
                 </DialogContent>
             </Dialog>
 
-            {/* AlertDialog untuk Konfirmasi Hapus */}
             <AlertDialog
                 open={!!deletingMember}
                 onOpenChange={() => setDeletingMember(null)}

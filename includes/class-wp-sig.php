@@ -199,19 +199,25 @@ class Wp_Sig
 
 		$this->loader->add_filter('admin_footer_text', $plugin_admin, 'change_admin_footer_text', 11);
 
-		$member_api_controller = new MemberApiController();
+		// Create shared service instances to avoid redundant instantiation
+		$settings_service = new SettingsService();
+		$event_service = new EventService($settings_service);
+		$member_service = new MemberService($event_service, $settings_service);
+		$import_service = new ImportService($member_service, $event_service);
+
+		$member_api_controller = new MemberApiController($member_service);
 		$this->loader->add_action('rest_api_init', $member_api_controller, 'register_routes');
 
-		$settings_api_controller = new SettingsApiController();
+		$settings_api_controller = new SettingsApiController($settings_service);
 		$this->loader->add_action('rest_api_init', $settings_api_controller, 'register_routes');
 
-		$event_api_controller = new EventApiController();
+		$event_api_controller = new EventApiController($event_service);
 		$this->loader->add_action('rest_api_init', $event_api_controller, 'register_routes');
 
-		$import_api_controller = new ImportApiController();
+		$import_api_controller = new ImportApiController($import_service);
 		$this->loader->add_action('rest_api_init', $import_api_controller, 'register_routes');
 
-		$event_schedule_controller = new EventScheduleApiController();
+		$event_schedule_controller = new EventScheduleApiController($event_service, $member_service, $settings_service);
 		$this->loader->add_action('rest_api_init', $event_schedule_controller, 'register_routes');
 	}
 
@@ -230,10 +236,14 @@ class Wp_Sig
 		$this->loader->add_action('wp_enqueue_scripts', $plugin_public, 'enqueue_styles');
 		$this->loader->add_action('wp_enqueue_scripts', $plugin_public, 'enqueue_scripts');
 
-		$public_api_controller = new PublicApiController();
+		// Reuse shared services for public controllers
+		$settings_service = new SettingsService();
+		$event_service = new EventService($settings_service);
+		$member_service = new MemberService($event_service, $settings_service);
+
+		$public_api_controller = new PublicApiController($member_service, $event_service);
 		$this->loader->add_action( 'rest_api_init', $public_api_controller, 'register_routes' );
 
-		// 2. Daftarkan Shortcode
 		$this->loader->add_action( 'init', $plugin_public, 'register_shortcodes' );
 	}
 
